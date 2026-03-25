@@ -1,0 +1,18 @@
+# Intellij files
+.idea/
+
+# virtual environment
+.venv/
+
+# pytest coverage
+htmlcov/
+.coverage
+
+**/__pycache__
+
+# notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# build
+*.egg-info/

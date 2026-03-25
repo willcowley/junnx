@@ -1,0 +1,45 @@
+site_name: junnx
+
+plugins:
+  - mkdocstrings
+  - mkdocs-jupyter:
+      execute: false
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: white
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    logo: material/chart-bell-curve
+  # from https://pictogrammers.com/library/mdi/icon/chart-bell-curve/
+  favicon: "assets/chart-bell-curve.svg"
+
+nav:
+  - 'index.md'
+  - API:
+      - 'api/datasets.md'
+      - 'api/elbo.md'
+      - 'api/layers.md'
+      - 'api/likelihoods.md'
+      - 'api/net.md'
+      - 'api/priors.md'
+      - 'api/samplers.md'
+      - 'api/train.md'
+      - 'api/trainer.md'
+      - 'api/utils.md'
+      - 'api/variational.md'
+  - Examples:
+      - 'examples/regression1d.py'
+      - 'examples/classification2d.py'
+      - 'examples/sequential_learning.py'
