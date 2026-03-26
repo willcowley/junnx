@@ -44,7 +44,8 @@ cuda = [
     "jax[cuda12] (>=0.5,<0.6)"
 ]
 data = [
-    "scikit-learn (<1.8)"
+    "scikit-learn (<1.8)",
+    "tensorflow-cpu (>=2.21.0,<3.0.0)"
 ]
 
 [tool.black]
