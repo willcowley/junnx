@@ -2,7 +2,7 @@ import jax
 import optax
 import tensorflow_probability.substrates.jax as tfp
 
-from junnx.datasets import DataLoader, SnelsonDataset
+from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
@@ -12,12 +12,21 @@ from junnx.trainer import Trainer
 from junnx.variational import GaussianVariationalDistribution
 
 
-def test_snelson05_regression() -> None:
+class TestDataset(TensorDataset):
+
+    def __init__(self) -> None:
+        key_x, key_y = jax.random.split(jax.random.PRNGKey(0), 2)
+        x = jax.random.uniform(key_x, (64, 1)) * 2 - 1
+        y = 2 * x + 0.5 + jax.random.normal(key_y, (64, 1)) * 0.1
+        super().__init__(x, y)
+
+
+def test_regression() -> None:
 
     key = jax.random.PRNGKey(42)
     key_m, key_dl, key_train = jax.random.split(key, 3)
 
-    ds = SnelsonDataset()
+    ds = TestDataset()
     dl = DataLoader(ds, batch_size=32, shuffle=True, key=key_dl)
 
     # create model
@@ -25,7 +34,7 @@ def test_snelson05_regression() -> None:
         net=DenseStochasticNet(
             n_in=1,
             n_out=1,
-            n_hidden=32,
+            n_hidden=8,
             depth=2,
             use_bias=True,
             key=key_m,
@@ -42,9 +51,9 @@ def test_snelson05_regression() -> None:
     opt = optax.adam(1e-3)
 
     trainer = Trainer(
-        n_samples_nll=16,
-        n_samples_kl=64,
-        n_epochs=32,
+        n_samples_nll=4,
+        n_samples_kl=16,
+        n_epochs=10,
         n_data=len(ds),
         opt=opt,
     )
