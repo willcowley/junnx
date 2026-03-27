@@ -45,7 +45,8 @@ cuda = [
 ]
 data = [
     "scikit-learn (<1.8)",
-    "tensorflow-cpu (>=2.21.0,<3.0.0)"
+    "tensorflow-cpu (>=2.21.0,<3.0.0)",
+    "tensorflow-datasets (>=4.9.9,<5.0.0)"
 ]
 
 [tool.black]
