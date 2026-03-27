@@ -19,8 +19,8 @@ class TensorDataset(Dataset):
     """Dataset wrapping x and y tensors."""
 
     def __init__(self, x: jnp.ndarray, y: jnp.ndarray) -> None:
-        xshape, _ = x.shape
-        yshape, _ = y.shape
+        xshape, *_ = x.shape
+        yshape, *_ = y.shape
         if xshape != yshape:
             raise ValueError(
                 f"Expected x and y to have the same leading dimension, got {x.shape} and {y.shape}"

@@ -21,7 +21,7 @@ class Prior(eqx.Module):
     ) -> tfp.distributions.Distribution: ...
 
 
-class StochasticNetPrior(Prior):
+class SampleStochasticNetPrior(Prior):
     """Prior based on a `DenseStochasticNet` and `VariationalDistribution`."""
 
     net: StochasticNet
@@ -33,6 +33,24 @@ class StochasticNetPrior(Prior):
         # x: [N, D]
         predf = self.net.predict_f_samples(x, n_samples, key=key)  # [S, N, O]
         return self.variational_dist(predf)  # [O, N]
+
+
+class TractableStochasticNetPrior(Prior):
+
+    net: StochasticNet
+    key: jnp.ndarray
+
+    def __call__(
+        self, x: jnp.ndarray, n_samples: int, key: jnp.ndarray
+    ) -> tfp.distributions.Distribution:
+        # x: [N, ...]
+        mean, cov = self.net.tractable_f_mean_cov(
+            x, key=self.key
+        )  # mean: [O, N], cov: [O, N, N]
+        cov = 0.5 * (cov + jnp.swapaxes(cov, -2, -1))  # enforce symmetry
+        _jitter = _JITTER * jnp.eye(cov.shape[-1], dtype=cov.dtype)[None, ...]  # [1, N, N]
+        L = jnp.linalg.cholesky(cov + _jitter)  # [O, N, N]
+        return tfp.distributions.MultivariateNormalTriL(loc=mean, scale_tril=L)
 
 
 class DirichletPrior(Prior):
@@ -85,7 +103,7 @@ class IsotropicStationaryKernelPrior(Prior):
         self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
     ) -> tfp.distributions.Distribution:
         # x: [N, D]
-        N, _ = x.shape
+        N, *_ = x.shape
         cov = self.kernel(x)  # [N, N]
         cov = 0.5 * (cov + cov.T)  # enforce symmetry
         L = jnp.linalg.cholesky(cov + _JITTER * jnp.eye(N, dtype=cov.dtype))  # [N, N]

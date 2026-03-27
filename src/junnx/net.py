@@ -30,6 +30,11 @@ class StochasticNet(eqx.Module):
         predf = jax.vmap(jax.vmap(self, in_axes=(0, None)), in_axes=(None, 0))(x, keys)
         return predf  # [S, N, O]
 
+    def tractable_f_mean_cov(
+        self, x: jnp.ndarray, *, key: jnp.ndarray
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        raise NotImplementedError
+
 
 class DenseStochasticNet(StochasticNet):
     """
@@ -123,20 +128,19 @@ class StochasticLeNet(StochasticNet):
         self.fc3 = DenseStochasticLayer(84, 10, use_bias=True, key=fc3_key)
 
     def _conv_backbone(self, x: jnp.ndarray) -> jnp.ndarray:
-        x = self.conv1(x)
-        x = jax.nn.silu(x)
-        x = self.pool1(x)
-        x = self.conv2(x)
-        x = jax.nn.silu(x)
-        x = self.pool2(x)
+        x = self.pool1(jax.nn.silu(self.conv1(x)))
+        x = self.pool2(jax.nn.silu(self.conv2(x)))
         return x.flatten()
 
+    def _stochastic_mlp_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        fc1_key, fc2_key = jax.random.split(key, 2)
+        x = jax.nn.silu(self.fc1(x, fc1_key))
+        x = jax.nn.silu(self.fc2(x, fc2_key))
+        return x
+
     def _stochastic_mlp(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
-        fc1_key, fc2_key, fc3_key = jax.random.split(key, 3)
-        x = self.fc1(x, fc1_key)
-        x = jax.nn.silu(x)
-        x = self.fc2(x, fc2_key)
-        x = jax.nn.silu(x)
+        fc1_fc2_key, fc3_key = jax.random.split(key, 2)
+        x = self._stochastic_mlp_wout_last_layer(x, fc1_fc2_key)
         x = self.fc3(x, fc3_key)
         return x
 
@@ -154,3 +158,24 @@ class StochasticLeNet(StochasticNet):
             x, keys
         )
         return predf  # [S, N, O]
+
+    def tractable_f_mean_cov(
+        self, x: jnp.ndarray, *, key: jnp.ndarray
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        # x: [N, C, H, W]
+        x = jax.vmap(self._conv_backbone)(x)
+        x = jax.vmap(self._stochastic_mlp_wout_last_layer, in_axes=(0, None))(x, key)  # [N, D]
+
+        w_mean = self.fc3.w_mean  # [O, D]
+        w_var = self.fc3.w_var  # [O, D]
+        mean = w_mean @ x.T + (
+            self.fc3.bias[:, None] if self.fc3.bias is not None else 0.0
+        )  # [O, N]
+        cov = jnp.einsum("nd,od,md->onm", x, w_var, x)
+        return mean, cov  # [O, N], [O, N, N]
+
+    @classmethod
+    def as_prior_net(cls, *, key: jnp.ndarray) -> "StochasticLeNet":
+        prior = cls(key=key)
+        prior = eqx.tree_at(lambda m: m.fc3.w_log_var, prior, jnp.zeros(shape=(10, 84)))
+        return prior
