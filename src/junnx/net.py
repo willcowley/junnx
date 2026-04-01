@@ -1,5 +1,5 @@
 import abc
-from typing import Sequence
+from typing import Callable, Mapping, Sequence
 
 import equinox as eqx
 import jax
@@ -7,9 +7,10 @@ from jax import numpy as jnp
 
 from junnx.layers import DenseStochasticLayer
 
-_ACTIVATIONS = {
+_ACTIVATIONS: Mapping[str, Callable[[jnp.ndarray], jnp.ndarray]] = {
     "silu": jax.nn.silu,
     "swish": jax.nn.swish,
+    "relu": jax.nn.relu,
 }
 
 
@@ -29,6 +30,16 @@ class StochasticNet(eqx.Module):
         keys = jax.random.split(key, n_samples)
         predf = jax.vmap(lambda k: jax.vmap(lambda _x: self(_x, key=k))(x))(keys)
         return predf  # [S, N, O]
+
+    def tractable_f_mean_cov(
+        self, x: jnp.ndarray, key: jnp.ndarray
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Returns the tractable approximation (see Rudner et al. 2024, Section 3.1) of mean and
+        covariance of the 'distribution over functions' represented by the `StochasticNet` at
+        input locations `x`.
+        """
+        raise NotImplementedError
 
 
 class DenseStochasticNet(StochasticNet):
@@ -97,3 +108,26 @@ class DenseStochasticNet(StochasticNet):
         layer_key, _ = jax.random.split(key, 2)
         x = self.layers[-1](x, layer_key)
         return x
+
+    def _call_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        for layer in self.layers[:-1]:
+            layer_key, key = jax.random.split(key, 2)
+            x = layer(x, layer_key)
+            x = _ACTIVATIONS[self.activation](x)
+        return x
+
+    def tractable_f_mean_cov(
+        self, x: jnp.ndarray, key: jnp.ndarray
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        # x: [N, D]
+        x = jax.vmap(self._call_wout_last_layer, in_axes=(0, None))(x, key)  # [N, H]
+
+        w_mean = self.layers[-1].w_mean  # [O, H]
+        w_var = self.layers[-1].w_var  # [O, H]
+        b = self.layers[-1].bias  # [O,] or None
+
+        mean = w_mean @ x.T  # [O, N]
+        if b is not None:
+            mean = mean + b[:, None]  # [O, N]
+        cov = jnp.einsum("nh,oh,mh->onm", x, w_var, x)  # [O, N, N]
+        return mean, cov

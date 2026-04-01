@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 import optax
 import tensorflow_probability.substrates.jax as tfp
+from junnx.variational import GaussianVariationalDistribution
 
 from junnx.train import TrainingModel
 
@@ -52,7 +53,12 @@ def elbo(
     # compute KL div
     context_key, klq_key, klp_key = jax.random.split(kl_key, 3)
     context_points = m.sampler(context_key)  # [M, D]
-    q = m.variational(context_points, n_samples_kl, key=klq_key)  # [O,]
+    # q = m.variational(context_points, n_samples_kl, key=klq_key)  # [O,]
+    # tractable
+    mean, cov = m.net.tractable_f_mean_cov(context_points, key=klq_key)  # [O, M], [O, M, M]
+    m_variational_dist = m.variational_dist
+    assert isinstance(m_variational_dist, GaussianVariationalDistribution)
+    q = m_variational_dist.from_mean_cov(mean, cov)  # [O,]
     p = m.prior(context_points, n_samples_kl, key=klp_key)
     kl_div = tfp.distributions.kl_divergence(q, p)  # [O,]
 
@@ -94,7 +100,7 @@ def train_step(
             divergence.
         opt: The optax optimiser to use for updating the trainable parameters.
         opt_state: The current state of the optimiser.
-        key: JAX LRNG key to seed sampling (keyword-only argument).
+        key: JAX PRNG key to seed the sampling (keyword-only argument).
 
     Returns:
         A tuple containing:
