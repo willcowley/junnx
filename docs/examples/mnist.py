@@ -46,8 +46,6 @@ model = TrainingModel(
     variational_dist=DirichletVariationalDistribution(),
 )
 
-model.net.tractable_f_mean_cov(ds.x[:32], key=key_m)
-
 trainer = Trainer(
     n_samples_nll=4,
     n_samples_kl=16,
