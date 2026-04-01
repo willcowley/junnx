@@ -30,11 +30,6 @@ class StochasticNet(eqx.Module):
         predf = jax.vmap(jax.vmap(self, in_axes=(0, None)), in_axes=(None, 0))(x, keys)
         return predf  # [S, N, O]
 
-    def tractable_f_mean_cov(
-        self, x: jnp.ndarray, *, key: jnp.ndarray
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        raise NotImplementedError
-
 
 class DenseStochasticNet(StochasticNet):
     """
@@ -158,24 +153,3 @@ class StochasticLeNet(StochasticNet):
             x, keys
         )
         return predf  # [S, N, O]
-
-    def tractable_f_mean_cov(
-        self, x: jnp.ndarray, *, key: jnp.ndarray
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        # x: [N, C, H, W]
-        x = jax.vmap(self._conv_backbone)(x)
-        x = jax.vmap(self._stochastic_mlp_wout_last_layer, in_axes=(0, None))(x, key)  # [N, D]
-
-        w_mean = self.fc3.w_mean  # [O, D]
-        w_var = self.fc3.w_var  # [O, D]
-        mean = w_mean @ x.T + (
-            self.fc3.bias[:, None] if self.fc3.bias is not None else 0.0
-        )  # [O, N]
-        cov = jnp.einsum("nd,od,md->onm", x, w_var, x)
-        return mean, cov  # [O, N], [O, N, N]
-
-    @classmethod
-    def as_prior_net(cls, *, key: jnp.ndarray) -> "StochasticLeNet":
-        prior = cls(key=key)
-        prior = eqx.tree_at(lambda m: m.fc3.w_log_var, prior, jnp.zeros(shape=(10, 84)))
-        return prior
