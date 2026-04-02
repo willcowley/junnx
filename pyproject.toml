@@ -59,6 +59,11 @@ line_length = 95
 [tool.mypy]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+omit = [
+    "src/junnx/data/*.py"
+]
+
 [tool.taskipy.tasks]
 test = "pytest --cov-report html --cov=junnx --durations 10 tests/"
 format = "black . && isort ."
