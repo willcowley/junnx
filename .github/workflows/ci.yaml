@@ -27,7 +27,7 @@ jobs:
           version: 2.2.1
       - name: Install dependencies
         run: |
-          poetry install --without cuda --without dev
+          poetry install --without cuda --without dev --without data
       - name: Run tests
         run: |
           JAX_ENABLE_X64=1 poetry run task test

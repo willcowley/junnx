@@ -30,7 +30,7 @@ import tensorflow_probability.substrates.jax as tfp
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
-from junnx.priors import Matern52Prior, StochasticNetPrior
+from junnx.priors import Matern52Prior, SampleStochasticNetPrior
 from junnx.samplers import UniformSampler
 from junnx.train import TrainingModel
 from junnx.trainer import Trainer
@@ -162,7 +162,7 @@ _plot_model(m, ds1, 1999, 1_024)
 
 trainable, static = m.partition()
 
-prior_net = StochasticNetPrior(
+prior_net = SampleStochasticNetPrior(
     net=copy.deepcopy(m.net), variational_dist=GaussianVariationalDistribution()
 )
 static = eqx.tree_at(lambda _m: _m.prior, static, prior_net)

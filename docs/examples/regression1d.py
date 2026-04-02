@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 import optax
 import tensorflow_probability.substrates.jax as tfp
 
-from junnx.datasets import DataLoader, SnelsonDataset
+from junnx.data import SnelsonDataset
+from junnx.datasets import DataLoader
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior

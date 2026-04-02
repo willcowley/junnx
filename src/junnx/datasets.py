@@ -1,31 +1,7 @@
-from enum import Enum, unique
-from pathlib import Path
-from typing import Iterator, Mapping, Optional, Protocol
+from typing import Iterator
 
 import jax
 import jax.numpy as jnp
-from sklearn.datasets import make_moons as sk_make_moons
-
-
-@unique
-class _ToyData(str, Enum):
-    SNELSON05 = "snelson"
-
-
-class _ToyDataLoader(Protocol):
-    def __call__(self) -> tuple[jnp.ndarray, jnp.ndarray]: ...
-
-
-def _load_snelson05() -> tuple[jnp.ndarray, jnp.ndarray]:
-    filename = str(Path(__file__).parent / "data" / "snelson05.npy")
-    data = jnp.load(filename)
-    x = data[:, :1] * 2 / 3 - 2  # scale to [-2, 2]
-    y = data[:, 1:] * 4 / 3 + 2 / 3  # scale to [-2, 2]
-    mask = (x >= -1) & (x < 0)  # remove points in [-1, 0)
-    return x[~mask][:, None], y[~mask][:, None]
-
-
-_TOY_DATA_FN: Mapping[_ToyData, _ToyDataLoader] = {_ToyData.SNELSON05: _load_snelson05}
 
 
 class Dataset:
@@ -43,8 +19,8 @@ class TensorDataset(Dataset):
     """Dataset wrapping x and y tensors."""
 
     def __init__(self, x: jnp.ndarray, y: jnp.ndarray) -> None:
-        xshape, _ = x.shape
-        yshape, _ = y.shape
+        xshape, *_ = x.shape
+        yshape, *_ = y.shape
         if xshape != yshape:
             raise ValueError(
                 f"Expected x and y to have the same leading dimension, got {x.shape} and {y.shape}"
@@ -65,30 +41,6 @@ class TensorDataset(Dataset):
 
     def __getitem__(self, idx: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
         return self._x[idx], self._y[idx]
-
-
-class SnelsonDataset(TensorDataset):
-    """
-    Dataset derived from Figure 1 of Snelson & Gaharami 2005 "Sparse Gaussian Processes using
-    Pseudo-inputs".
-    """
-
-    def __init__(self) -> None:
-        x, y = _TOY_DATA_FN[_ToyData.SNELSON05]()
-        super().__init__(x, y)
-
-
-class MakeMoonsDataset(TensorDataset):
-    """Dataset dervied from the sci-kit learn `make_moons` function."""
-
-    def __init__(self, n_samples: int | tuple[int, int], noise: Optional[float], seed: int):
-        x, y = sk_make_moons(n_samples=n_samples, noise=noise, shuffle=True, random_state=seed)
-        # centre x on origin
-        x[..., 1:] -= 0.25
-        x[..., :1] -= 0.5
-        x = jnp.asarray(x)  # (N, 2)
-        y = jnp.asarray(y)[:, None]  # (N, 1)
-        super().__init__(x, y)
 
 
 class DataLoader:

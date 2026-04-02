@@ -41,12 +41,22 @@ class DenseStochasticLayer(eqx.Module):
 
         self.bias = jnp.zeros((n_out,)) if use_bias else None
 
+    @property
+    def w_std(self) -> jnp.ndarray:
+        """The standard deviation of the weights."""
+        return jnp.exp(0.5 * self.w_log_var)
+
+    @property
+    def w_var(self) -> jnp.ndarray:
+        """The variance of the weights."""
+        return jnp.exp(self.w_log_var)
+
     def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
         eta = (
             jax.random.truncated_normal(key, -2.0, 2.0, self.w_log_var.shape)
             / _TRUNC_2STD_NORM
         )
-        weights = self.w_mean + eta * jnp.exp(0.5 * self.w_log_var)
+        weights = self.w_mean + eta * self.w_std
 
         x = weights @ x
         if self.use_bias:

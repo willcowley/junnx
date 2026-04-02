@@ -27,7 +27,7 @@ class StochasticNet(eqx.Module):
         """
         # x: [N, D]
         keys = jax.random.split(key, n_samples)
-        predf = jax.vmap(lambda k: jax.vmap(lambda _x: self(_x, key=k))(x))(keys)
+        predf = jax.vmap(jax.vmap(self, in_axes=(0, None)), in_axes=(None, 0))(x, keys)
         return predf  # [S, N, O]
 
 
@@ -97,3 +97,59 @@ class DenseStochasticNet(StochasticNet):
         layer_key, _ = jax.random.split(key, 2)
         x = self.layers[-1](x, layer_key)
         return x
+
+
+class StochasticLeNet(StochasticNet):
+    """
+    A stochastic version of the LeNet convolutional architecture.
+    """
+
+    conv1: eqx.nn.Conv2d
+    pool1: eqx.nn.AvgPool2d
+    conv2: eqx.nn.Conv2d
+    pool2: eqx.nn.AvgPool2d
+    fc1: DenseStochasticLayer
+    fc2: DenseStochasticLayer
+    fc3: DenseStochasticLayer
+
+    def __init__(self, *, key: jnp.ndarray) -> None:
+        conv1_key, conv2_key, fc1_key, fc2_key, fc3_key = jax.random.split(key, 5)
+        self.conv1 = eqx.nn.Conv2d(1, 6, kernel_size=5, padding=2, key=conv1_key)
+        self.pool1 = eqx.nn.AvgPool2d(kernel_size=2, stride=2)
+        self.conv2 = eqx.nn.Conv2d(6, 16, kernel_size=5, padding=0, key=conv2_key)
+        self.pool2 = eqx.nn.AvgPool2d(kernel_size=2, stride=2)
+        self.fc1 = DenseStochasticLayer(16 * 5 * 5, 120, use_bias=True, key=fc1_key)
+        self.fc2 = DenseStochasticLayer(120, 84, use_bias=True, key=fc2_key)
+        self.fc3 = DenseStochasticLayer(84, 10, use_bias=True, key=fc3_key)
+
+    def _conv_backbone(self, x: jnp.ndarray) -> jnp.ndarray:
+        x = self.pool1(jax.nn.silu(self.conv1(x)))
+        x = self.pool2(jax.nn.silu(self.conv2(x)))
+        return x.flatten()
+
+    def _stochastic_mlp_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        fc1_key, fc2_key = jax.random.split(key, 2)
+        x = jax.nn.silu(self.fc1(x, fc1_key))
+        x = jax.nn.silu(self.fc2(x, fc2_key))
+        return x
+
+    def _stochastic_mlp(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        fc1_fc2_key, fc3_key = jax.random.split(key, 2)
+        x = self._stochastic_mlp_wout_last_layer(x, fc1_fc2_key)
+        x = self.fc3(x, fc3_key)
+        return x
+
+    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        x = self._conv_backbone(x)
+        x = self._stochastic_mlp(x, key)
+        return x
+
+    def predict_f_samples(
+        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
+    ) -> jnp.ndarray:
+        x = jax.vmap(self._conv_backbone)(x)
+        keys = jax.random.split(key, n_samples)
+        predf = jax.vmap(jax.vmap(self._stochastic_mlp, in_axes=(0, None)), in_axes=(None, 0))(
+            x, keys
+        )
+        return predf  # [S, N, O]

@@ -5,6 +5,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
+from junnx.datasets import TensorDataset
+
 
 class Sampler(eqx.Module):
 
@@ -47,3 +49,25 @@ class UniformSampler(Sampler):
         return jax.random.uniform(
             key, shape=(self.n_samples, self.n_dim), minval=self.low, maxval=self.high
         )
+
+
+class DataSampler(Sampler):
+    """
+    Samples randomly from a dataset.
+
+    Args:
+        n_samples: The number of samples to draw from the hypercube on each call.
+    """
+
+    n_samples: int = eqx.field(static=True)
+    """The number of samples to draw from the dataset on each call."""
+    data: TensorDataset = eqx.field(static=True)
+    """The dataset from which to sample."""
+
+    def __init__(self, n_samples: int, data: TensorDataset) -> None:
+        self.n_samples = n_samples
+        self.data = data
+
+    def __call__(self, key: jnp.ndarray) -> jnp.ndarray:
+        idxs = jax.random.permutation(key, jnp.arange(len(self.data)))[: self.n_samples]
+        return self.data.x[idxs]

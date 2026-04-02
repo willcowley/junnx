@@ -13,7 +13,6 @@ dependencies = [
     "equinox (>=0.13.2,<0.14.0)",
     "tensorflow-probability (>=0.25.0,<0.26.0)",
     "tqdm (>=4.67.1,<5.0.0)",
-    "scikit-learn (<1.8)",
     "numpy (<2.1)"
 ]
 
@@ -44,6 +43,11 @@ dev = [
 cuda = [
     "jax[cuda12] (>=0.5,<0.6)"
 ]
+data = [
+    "scikit-learn (<1.8)",
+    "tensorflow-cpu (>=2.21.0,<3.0.0)",
+    "tensorflow-datasets (>=4.9.9,<5.0.0)"
+]
 
 [tool.black]
 line-length = 95
@@ -54,6 +58,11 @@ line_length = 95
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = [
+    "src/junnx/data/*.py"
+]
 
 [tool.taskipy.tasks]
 test = "pytest --cov-report html --cov=junnx --durations 10 tests/"

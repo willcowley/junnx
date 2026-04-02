@@ -3,7 +3,7 @@ import jax.random as jaxr
 import numpy.testing as npt
 import pytest
 
-from junnx.net import DenseStochasticNet
+from junnx.net import DenseStochasticNet, StochasticLeNet
 
 
 def test_dense_stochastic_net():
@@ -50,3 +50,26 @@ def test_dense_stochastic_net():
     # check that same key gives same samples
     samples2 = predict_f_fn(x, n_samples=5, key=key_call0)
     npt.assert_allclose(samples0, samples2)
+
+
+def test_stochastic_lenet():
+    key = jaxr.PRNGKey(42)
+    m = StochasticLeNet(key=key)
+
+    image = jaxr.normal(key, (1, 28, 28))
+
+    key0, key1 = jaxr.split(key, 2)
+    out0 = m(image, key=key0)
+
+    assert out0.shape == (10,)
+
+    out1 = m(image, key=key1)
+
+    with pytest.raises(AssertionError):
+        npt.assert_allclose(out0, out1)
+
+    out2 = m(image, key=key0)
+    npt.assert_allclose(out0, out2)
+
+    out_samples = m.predict_f_samples(image[None], n_samples=3, key=key0)
+    assert out_samples.shape == (3, 1, 10)

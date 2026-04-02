@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 import optax
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from junnx.datasets import DataLoader, MakeMoonsDataset
+from junnx.data import MakeMoonsDataset
+from junnx.datasets import DataLoader
 from junnx.likelihoods import CategoricalLikelihood
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
