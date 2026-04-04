@@ -44,7 +44,7 @@ class DirichletVariationalDistribution(VariationalDistribution):
         ) + _EPS  # [S, N, O]
         #
         mean = jnp.mean(prob_samples, axis=0)  # [N, O]
-        var = jnp.var(prob_samples, axis=0)  # [N, O]
+        var = jnp.var(prob_samples, axis=0) + _EPS  # [N, O]
         precision = mean * (1 - mean) / var - 1  # [N, O]
         concentration = mean * precision  # [N, O]
         return tfp.distributions.Dirichlet(concentration=concentration)
