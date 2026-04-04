@@ -48,11 +48,7 @@ class TrainingModel(eqx.Module):
 
         return trainable, static
 
-    def predict_y_mean_var(self, f_samples: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
-        """
-        Predicts the mean and variance of the predictive distribution over observations, Y,
-        given samples from the predictive distribution over f.
-        """
+    def predict_ydist(self, f_samples: jnp.ndarray) -> tfp.distributions.Distribution:
         # f_samples: [S, N, O]
         n_samples, *_ = f_samples.shape
         # transpose for tfp.distributions.MixtureSameFamily, which expects the mixture
@@ -62,7 +58,14 @@ class TrainingModel(eqx.Module):
         mixture_distribution = tfp.distributions.Categorical(
             logits=jnp.zeros(n_samples)
         )  # [S,]
-        mixture = tfp.distributions.MixtureSameFamily(mixture_distribution, ydist)  # [N, O]
+        return tfp.distributions.MixtureSameFamily(mixture_distribution, ydist)  # [N, O]
+
+    def predict_y_mean_var(self, f_samples: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Predicts the mean and variance of the predictive distribution over observations, Y,
+        given samples from the predictive distribution over f.
+        """
+        mixture = self.predict_ydist(f_samples)  # [N, O]
         mean = mixture.mean()  # [N, O]
         var = mixture.variance()  # [N, O]
         return mean, var

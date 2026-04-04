@@ -4,6 +4,7 @@ import tensorflow_probability.substrates.jax as tfp
 
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
+from junnx.metrics import MSE, NLL
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
 from junnx.samplers import UniformSampler
@@ -12,12 +13,26 @@ from junnx.trainer import Trainer
 from junnx.variational import GaussianVariationalDistribution
 
 
-class TestDataset(TensorDataset):
+class DummyTestDataset(TensorDataset):
 
-    def __init__(self) -> None:
-        key_x, key_y = jax.random.split(jax.random.PRNGKey(0), 2)
-        x = jax.random.uniform(key_x, (64, 1)) * 2 - 1
-        y = 2 * x + 0.5 + jax.random.normal(key_y, (64, 1)) * 0.1
+    def __init__(self, split: str) -> None:
+        if split == "train":
+            seed = 0
+            n = 64
+            dx = 0.0
+        elif split == "val":
+            seed = 1
+            n = 16
+            dx = 0.0
+        elif split == "ood":
+            seed = 2
+            n = 16
+            dx = 1.1
+        else:
+            raise ValueError(f"Invalid split: {split}")
+        key_x, key_y = jax.random.split(jax.random.PRNGKey(seed), 2)
+        x = jax.random.uniform(key_x, (n, 1)) + dx
+        y = 2 * x + 0.5 + jax.random.normal(key_y, (n, 1)) * 0.1
         super().__init__(x, y)
 
 
@@ -26,8 +41,13 @@ def test_regression() -> None:
     key = jax.random.PRNGKey(42)
     key_m, key_dl, key_train = jax.random.split(key, 3)
 
-    ds = TestDataset()
+    ds = DummyTestDataset(split="train")
+    val_ds = DummyTestDataset(split="val")
+    ood_ds = DummyTestDataset(split="ood")
+    key_dl, key_val, key_ood = jax.random.split(key_dl, 3)
     dl = DataLoader(ds, batch_size=32, shuffle=True, key=key_dl)
+    val_dl = DataLoader(val_ds, batch_size=8, shuffle=False, key=key_val)
+    ood_dl = DataLoader(ood_ds, batch_size=8, shuffle=False, key=key_ood)
 
     # create model
     model = TrainingModel(
@@ -50,13 +70,16 @@ def test_regression() -> None:
 
     opt = optax.adam(1e-3)
 
+    metrics = {"MSE": MSE, "NLL": NLL}
+
     trainer = Trainer(
         n_samples_nll=4,
         n_samples_kl=16,
         n_epochs=10,
         n_data=len(ds),
         opt=opt,
+        metrics=metrics,
     )
 
-    _ = trainer.train(model, dl, key=key_train)
+    _ = trainer.train(model, dl, val_dl, ood_dl, key=key_train)
     _ = trainer.best_model

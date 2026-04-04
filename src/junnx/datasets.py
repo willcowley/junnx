@@ -73,6 +73,10 @@ class DataLoader:
     def batch_size(self) -> int:
         return self._batch_size
 
+    @property
+    def batches_per_epoch(self) -> int:
+        return len(self.data) // self.batch_size
+
     def __iter__(self) -> Iterator[tuple[jnp.ndarray, jnp.ndarray]]:
         # iterates over the data in batches of size `batch_size`
         if self.shuffle:
