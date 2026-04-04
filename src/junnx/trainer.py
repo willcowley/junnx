@@ -4,6 +4,7 @@ import equinox as eqx
 import jax
 import optax
 from jax import numpy as jnp
+from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from junnx.datasets import DataLoader
@@ -103,6 +104,7 @@ class Trainer:
         opt: optax.GradientTransformation,
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
+        logger: Optional[SummaryWriter] = None,
     ) -> None:
         """
         Orchestrate model training.
@@ -128,6 +130,7 @@ class Trainer:
         self._best_opt_state: Optional[optax.OptState] = None
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
+        self._logger = logger
 
     @property
     def best_model(self) -> TrainingModel:
@@ -189,6 +192,8 @@ class Trainer:
 
             epoch_loss /= epoch_step_count
             pbar.set_postfix({"loss": epoch_loss.item()})
+            if self._logger is not None:
+                self._logger.add_scalar("loss/train", epoch_loss.item(), pbar.n)
 
             if val_dl is not None:
                 val_epoch_loss = jnp.array(0.0)
@@ -214,6 +219,10 @@ class Trainer:
                     epoch_step_count += 1
                 val_epoch_loss /= epoch_step_count
                 val_metric_results = {k: _m.compute() for k, _m in val_metrics.items()}
+                if self._logger is not None:
+                    self._logger.add_scalar("loss/val", val_epoch_loss.item(), pbar.n)
+                    for k, result in val_metric_results.items():
+                        self._logger.add_scalar(f"metric/val_{k}", result.item(), pbar.n)
                 pbar.set_postfix(
                     {
                         "val_loss": val_loss.item(),
@@ -229,6 +238,9 @@ class Trainer:
 
         if ood_dl is not None:
             ood_metrics = self.eval(self.best_model, ood_dl, key=key)
+            if self._logger is not None:
+                for k, result in ood_metrics.items():
+                    self._logger.add_scalar(f"metric/ood_{k}", result.item(), pbar.n)
 
         return eqx.combine(trainable, static)
 
