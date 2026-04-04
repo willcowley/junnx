@@ -53,7 +53,6 @@ def _plot_model(model: TrainingModel, i: int, n_samples: int = 32) -> None:
         lambda _k: model.net.predict_f_samples(x, 1, key=_k), keys, batch_size=64
     )  # [S, 1, N*N, O]
     predf = predf[..., 0, :, :]  # [S, N*N, O]
-    # predf = model.predict_f_samples(x, n_samples, key=jax.random.PRNGKey(0))  # [S, N*N, O]
     likelihood = model.likelihood
     assert isinstance(likelihood, CategoricalLikelihood)
     predp = likelihood.probs(predf)[..., :1]  # [S, N*N, 1],  P(class 0)
