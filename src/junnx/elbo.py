@@ -14,6 +14,7 @@ def elbo(
     n_batches_per_epoch: int,
     *,
     key: jnp.ndarray,
+    loss_method: str = "fsvi",
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Computes the function-space variational inference loss for a batch of data.
@@ -43,6 +44,8 @@ def elbo(
     predf = m.net.predict_f_samples(x, n_samples_nll, key=nll_key)  # [SN, N, O]
     predy = m.likelihood(predf)
     nll_loss = -predy.log_prob(y[None]).sum(axis=-1).mean()  # [,]  per-batch NLL
+    if loss_method == "nll":
+        return nll_loss / batch_size, predf  # [,], [SN, N, O]
 
     # compute KL div
     context_key, klq_key, klp_key = jax.random.split(kl_key, 3)

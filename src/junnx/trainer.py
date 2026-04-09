@@ -21,11 +21,21 @@ def loss_fn(
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
+    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     m = eqx.combine(trainable, static)
-    return elbo(m, x, y, n_samples_nll, n_samples_kl, n_batches_per_epoch, key=key)
+    return elbo(
+        m,
+        x,
+        y,
+        n_samples_nll,
+        n_samples_kl,
+        n_batches_per_epoch,
+        key=key,
+        loss_method=loss_method,
+    )
 
 
 @eqx.filter_jit
@@ -39,6 +49,7 @@ def train_step(
     n_batches_per_epoch: int,
     opt: optax.GradientTransformation,
     opt_state: optax.OptState,
+    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, TrainingModel, optax.OptState]:
@@ -69,7 +80,15 @@ def train_step(
         - The updated optimiser state.
     """
     (loss, _), grads = eqx.filter_value_and_grad(loss_fn, has_aux=True)(
-        trainable, static, x, y, n_samples_nll, n_samples_kl, n_batches_per_epoch, key=key
+        trainable,
+        static,
+        x,
+        y,
+        n_samples_nll,
+        n_samples_kl,
+        n_batches_per_epoch,
+        loss_method,
+        key=key,
     )
     update, opt_state = opt.update(grads, opt_state)
     trainable = eqx.apply_updates(trainable, update)
@@ -85,11 +104,20 @@ def val_step(
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
+    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     return loss_fn(
-        trainable, static, x, y, n_samples_nll, n_samples_kl, n_batches_per_epoch, key=key
+        trainable,
+        static,
+        x,
+        y,
+        n_samples_nll,
+        n_samples_kl,
+        n_batches_per_epoch,
+        loss_method,
+        key=key,
     )
 
 
@@ -105,6 +133,7 @@ class Trainer:
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
         logger: Optional[SummaryWriter] = None,
+        loss_method: str = "fsvi",
     ) -> None:
         """
         Orchestrate model training.
@@ -131,6 +160,9 @@ class Trainer:
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
         self._logger = logger
+        if loss_method not in {"fsvi", "nll"}:
+            raise ValueError(f"Invalid loss method: {loss_method}")
+        self._loss_method = loss_method
 
     @property
     def best_model(self) -> TrainingModel:
@@ -185,6 +217,7 @@ class Trainer:
                     dl.batches_per_epoch,
                     self.opt,
                     self._opt_state,
+                    self._loss_method,
                     key=subkey,
                 )
                 epoch_loss += loss
@@ -209,6 +242,7 @@ class Trainer:
                         self.n_samples_nll,
                         self.n_samples_kl,
                         val_dl.batches_per_epoch,
+                        self._loss_method,
                         key=subkey,
                     )
                     val_ydist = eqx.combine(trainable, static).predict_ydist(val_predf)
@@ -236,23 +270,23 @@ class Trainer:
                 self._best_model = eqx.combine(trainable, static)
                 self._best_opt_state = self._opt_state
 
-        if ood_dl is not None:
-            ood_metrics = self.eval(self.best_model, ood_dl, key=key)
-            if self._logger is not None:
-                for k, result in ood_metrics.items():
-                    self._logger.add_scalar(f"metric/ood_{k}", result.item(), pbar.n)
-
         return eqx.combine(trainable, static)
 
+    @staticmethod
     def eval(
-        self, model: TrainingModel, dl: DataLoader, *, key: jnp.ndarray
+        model: TrainingModel,
+        dl: DataLoader,
+        metrics: Mapping[str, type[Metric]],
+        n_samples: int = 32,
+        *,
+        key: jnp.ndarray,
     ) -> Mapping[str, jnp.ndarray]:
-        _metrics = {k: _m.empty() for k, _m in self._metrics.items()}
+        _metrics = {k: _m.empty() for k, _m in metrics.items()}
         for x, y in dl:
             key, subkey = jax.random.split(key)
-            f_samples = model.net.predict_f_samples(x, self.n_samples_nll, key=subkey)
+            f_samples = model.net.predict_f_samples(x, n_samples, key=subkey)
             ydist = model.predict_ydist(f_samples)
-            for k, metric in self._metrics.items():
+            for k, metric in metrics.items():
                 _metric_state = metric.from_ydist(ydist, y)
                 _metrics[k] = _metrics[k].merge(_metric_state)
 

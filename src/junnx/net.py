@@ -153,3 +153,56 @@ class StochasticLeNet(StochasticNet):
             x, keys
         )
         return predf  # [S, N, O]
+
+
+class MCDropoutLeNet(StochasticNet):
+    """
+    A LeNet architecture with Monte Carlo Dropout for uncertainty estimation.
+    """
+
+    conv1: eqx.nn.Conv2d
+    pool1: eqx.nn.AvgPool2d
+    conv2: eqx.nn.Conv2d
+    pool2: eqx.nn.AvgPool2d
+    fc1: eqx.nn.Linear
+    fc2: eqx.nn.Linear
+    fc3: eqx.nn.Linear
+    drop: eqx.nn.Dropout
+
+    def __init__(self, *, key: jnp.ndarray, dropout_rate: float = 0.5) -> None:
+        conv1_key, conv2_key, fc1_key, fc2_key, fc3_key = jax.random.split(key, 5)
+        self.conv1 = eqx.nn.Conv2d(1, 6, kernel_size=5, padding=2, key=conv1_key)
+        self.pool1 = eqx.nn.AvgPool2d(kernel_size=2, stride=2)
+        self.conv2 = eqx.nn.Conv2d(6, 16, kernel_size=5, padding=0, key=conv2_key)
+        self.pool2 = eqx.nn.AvgPool2d(kernel_size=2, stride=2)
+        self.fc1 = eqx.nn.Linear(16 * 5 * 5, 120, key=fc1_key)
+        self.fc2 = eqx.nn.Linear(120, 84, key=fc2_key)
+        self.fc3 = eqx.nn.Linear(84, 10, key=fc3_key)
+        self.drop = eqx.nn.Dropout(p=dropout_rate)
+
+    def _conv_backbone(self, x: jnp.ndarray) -> jnp.ndarray:
+        x = self.pool1(jax.nn.silu(self.conv1(x)))
+        x = self.pool2(jax.nn.silu(self.conv2(x)))
+        return x.flatten()
+
+    def _dropout_mlp(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        x = jax.nn.silu(self.fc1(x))
+        x = jax.nn.silu(self.fc2(x))
+        x = self.drop(x, inference=False, key=key)
+        x = self.fc3(x)
+        return x
+
+    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        x = self._conv_backbone(x)
+        x = self._dropout_mlp(x, key)
+        return x
+
+    def predict_f_samples(
+        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
+    ) -> jnp.ndarray:
+        x = jax.vmap(self._conv_backbone)(x)
+        keys = jax.random.split(key, n_samples)
+        predf = jax.vmap(jax.vmap(self._dropout_mlp, in_axes=(0, None)), in_axes=(None, 0))(
+            x, keys
+        )
+        return predf  # [S, N, O]

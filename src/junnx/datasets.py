@@ -42,6 +42,17 @@ class TensorDataset(Dataset):
     def __getitem__(self, idx: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
         return self._x[idx], self._y[idx]
 
+    def __add__(self, other: "TensorDataset") -> "TensorDataset":
+        if not isinstance(other, TensorDataset):
+            raise TypeError
+        if self.x.shape[1:] != other.x.shape[1:]:
+            raise ValueError
+        if self.y.shape[1:] != other.y.shape[1:]:
+            raise ValueError
+        x = jnp.concatenate([self.x, other.x], axis=0)
+        y = jnp.concatenate([self.y, other.y], axis=0)
+        return TensorDataset(x, y)
+
 
 class DataLoader:
     """

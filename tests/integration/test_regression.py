@@ -81,5 +81,12 @@ def test_regression() -> None:
         metrics=metrics,
     )
 
-    _ = trainer.train(model, dl, val_dl, ood_dl, key=key_train)
+    _ = trainer.train(model, dl, val_dl, key=key_train)
     _ = trainer.best_model
+
+    _ = Trainer.eval(
+        model=trainer.best_model,
+        dl=ood_dl,
+        metrics=metrics,
+        key=key_train,
+    )

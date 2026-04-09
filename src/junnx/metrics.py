@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
 M = TypeVar("M", bound="Metric")
+_EPS = 1e-12
 
 
 def _safe_divide(x: jnp.ndarray, y: jnp.ndarray) -> jnp.ndarray:
@@ -142,4 +143,100 @@ class Brier(_ClassificationAverage):
         return cls(
             total=jnp.sum((predictions - one_hot_labels) ** 2),
             count=jnp.asarray(labels.size),
+        )
+
+
+class _AUROC(Metric):
+
+    tp: jnp.ndarray
+    tn: jnp.ndarray
+    fp: jnp.ndarray
+    fn: jnp.ndarray
+    n_thresholds: int = eqx.field(static=True)
+    max_threshold: float = eqx.field(static=True)
+
+    @classmethod
+    def empty(cls, n_thresholds: int = 200, max_threshold: float = 1.0) -> "_AUROC":
+        return cls(
+            tp=jnp.zeros(n_thresholds),
+            tn=jnp.zeros(n_thresholds),
+            fp=jnp.zeros(n_thresholds),
+            fn=jnp.zeros(n_thresholds),
+            n_thresholds=n_thresholds,
+            max_threshold=max_threshold,
+        )
+
+    @classmethod
+    def from_samples(
+        cls,
+        predictions: jnp.ndarray,
+        labels: jnp.ndarray,
+        n_thresholds: int = 200,
+        max_threshold: float = 1.0,
+    ) -> "_AUROC":
+        # predictions: [N,]
+        # labels: [N,]
+        thresholds = jnp.linspace(0, max_threshold, n_thresholds)  # [T,]
+        pred_is_pos = jnp.greater(predictions, thresholds[..., None])  # [T, N]
+        pred_is_neg = jnp.logical_not(pred_is_pos)
+
+        label_is_pos = jnp.equal(labels, 1)  # [N,]
+        label_is_neg = jnp.equal(labels, 0)  # [N,]
+
+        tp = pred_is_pos * label_is_pos
+        tn = pred_is_neg * label_is_neg
+        fp = pred_is_pos * label_is_neg
+        fn = pred_is_neg * label_is_pos
+
+        return cls(
+            tp=tp.sum(axis=-1),
+            tn=tn.sum(axis=-1),
+            fp=fp.sum(axis=-1),
+            fn=fn.sum(axis=-1),
+            n_thresholds=n_thresholds,
+            max_threshold=max_threshold,
+        )
+
+    def merge(self, other: "_AUROC") -> "_AUROC":
+        assert self.n_thresholds == other.n_thresholds
+
+        tp = self.tp + other.tp
+        tn = self.tn + other.tn
+        fp = self.fp + other.fp
+        fn = self.fn + other.fn
+
+        m = eqx.tree_at(lambda m: m.tp, self, tp)
+        m = eqx.tree_at(lambda m: m.tn, m, tn)
+        m = eqx.tree_at(lambda m: m.fp, m, fp)
+        m = eqx.tree_at(lambda m: m.fn, m, fn)
+
+        return m
+
+    def compute(self) -> jnp.ndarray:
+        tp_rate = _safe_divide(self.tp, self.tp + self.fn)
+        fp_rate = _safe_divide(self.fp, self.fp + self.tn)
+
+        return -jnp.trapezoid(tp_rate, x=fp_rate)
+
+
+class EntropyAUROC(_AUROC):
+
+    @classmethod
+    def from_ydist(
+        cls,
+        ydist: tfp.distributions.MixtureSameFamily,
+        labels: jnp.ndarray,
+        n_thresholds: int = 200,
+    ) -> "EntropyAUROC":
+        dist = ydist.components_distribution
+        assert isinstance(dist, tfp.distributions.Categorical)  # [N, S, O]
+        predictions = dist.probs_parameter().mean(axis=-2)  # [N, O]
+        n_classes = predictions.shape[-1]
+        max_threshold = jnp.log(n_classes).item()
+        entropy = -jnp.sum(predictions * jnp.log(predictions + _EPS), axis=-1)  # [N,]
+        return cls.from_samples(  # type: ignore[return-value]
+            predictions=entropy,
+            labels=labels,
+            n_thresholds=n_thresholds,
+            max_threshold=max_threshold,
         )
