@@ -16,5 +16,5 @@ class MakeMoonsDataset(TensorDataset):
         x[..., 1:] -= 0.25
         x[..., :1] -= 0.5
         x = jnp.asarray(x)  # (N, 2)
-        y = jnp.asarray(y)[:, None]  # (N, 1)
+        y = jnp.asarray(y)  # (N,)
         super().__init__(x, y)

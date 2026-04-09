@@ -47,14 +47,15 @@ def test_categorical_likelihood() -> None:
     likelihood = CategoricalLikelihood()
 
     dummy_x = jaxr.normal(jaxr.PRNGKey(0), shape=(32, 16, 4))  # [S, N, O]
+    dummy_y = jaxr.randint(jaxr.PRNGKey(1), shape=(16,), minval=0, maxval=4)  # [N]
 
     dist = likelihood(dummy_x)
-    _ = dist.log_prob(dummy_x)
+    _ = dist.log_prob(dummy_y)
 
     assert isinstance(dist, tfp.distributions.Categorical)
-    assert dist.probs.shape == (32, 16, 1, 4)
+    assert dist.probs.shape == (32, 16, 4)
 
-    npt.assert_allclose(dist.probs[..., 0, :], likelihood.probs(dummy_x))
+    npt.assert_allclose(dist.probs, likelihood.probs(dummy_x))
     # probs in (0, 1) and sum to 1 along last axis
     npt.assert_array_less(dist.probs, 1.0)
     npt.assert_array_less(-dist.probs, 0.0)

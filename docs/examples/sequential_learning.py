@@ -152,7 +152,7 @@ opt = optax.adam(1e-3)
 trainer1 = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
-    n_epochs=2,  # _000,
+    n_epochs=2_000,
     n_data=len(ds1),
     opt=opt,
 )

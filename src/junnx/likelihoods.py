@@ -70,6 +70,4 @@ class CategoricalLikelihood(ClassificationLikelihood):
     def __call__(self, x: jnp.ndarray) -> tfp.distributions.Categorical:
         # x: [S, N, O]
         probs = self.probs(x)  # [S, N, O]
-        # expand so tfp dist has correct shape for batch and event dims
-        probs = jnp.expand_dims(probs, axis=-2)  # [S, N, 1, O]
         return tfp.distributions.Categorical(probs=probs)
