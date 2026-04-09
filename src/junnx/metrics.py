@@ -2,6 +2,7 @@
 Implementation of common machine learning metrics. Follows the
 [google-metrax](https://metrax.readthedocs.io/en/latest/) interface.
 """
+
 import abc
 from typing import TypeVar
 
@@ -121,8 +122,9 @@ class ECE(_ClassificationAverage):
         accuracy = jnp.argmax(predictions, axis=-1) == labels
         confidence = jnp.max(predictions, axis=-1)
         bins = jnp.linspace(0, 1, nbins + 1)
-        acc_binned, _ = jnp.histogram(confidence, bins=bins, weights=accuracy)
-        conf_binned, _ = jnp.histogram(confidence, bins=bins, weights=confidence)
+        bin_id = jnp.digitize(confidence, bins) - 1
+        acc_binned = jnp.zeros(nbins).at[bin_id].add(accuracy)
+        conf_binned = jnp.zeros(nbins).at[bin_id].add(confidence)
 
         return cls(
             total=acc_binned - conf_binned,
