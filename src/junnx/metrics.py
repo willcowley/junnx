@@ -1,3 +1,7 @@
+"""
+Implementation of common machine learning metrics. Follows the
+[google-metrax](https://metrax.readthedocs.io/en/latest/) interface.
+"""
 import abc
 from typing import TypeVar
 
