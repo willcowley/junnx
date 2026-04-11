@@ -102,7 +102,6 @@ trainer = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
     n_epochs=4_000,
-    n_data=len(ds),
     opt=opt,
 )
 _ = trainer.train(model, dl, key=key)

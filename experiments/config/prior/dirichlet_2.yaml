@@ -1,0 +1,4 @@
+_target_: junnx.priors.DirichletPrior
+concentration:
+  _target_: jax.numpy.asarray
+  a: [0.5, 0.5]

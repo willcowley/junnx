@@ -1,0 +1,4 @@
+_target_: junnx.likelihoods.GaussianLikelihood
+scale_init: [1.0]
+bijector:
+  _target_: tensorflow_probability.substrates.jax.bijectors.Softplus

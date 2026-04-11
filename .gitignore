@@ -16,3 +16,6 @@ htmlcov/
 
 # build
 *.egg-info/
+
+# env files
+.env

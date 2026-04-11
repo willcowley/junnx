@@ -75,7 +75,6 @@ trainer = Trainer(
     n_samples_nll=4,
     n_samples_kl=16,
     n_epochs=30,
-    n_data=len(ds),
     opt=opt,
     metrics=metrics,  # type: ignore[arg-type]
     logger=logger,

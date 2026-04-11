@@ -1,0 +1,7 @@
+_target_: builtins.dict
+ACC:
+  _target_: hydra.utils.get_class
+  path: junnx.metrics.Accuracy
+ECE:
+  _target_: hydra.utils.get_class
+  path: junnx.metrics.ECE
