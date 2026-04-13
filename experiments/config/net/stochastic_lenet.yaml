@@ -1,0 +1,4 @@
+_target_: junnx.net.StochasticLeNet
+key:
+  _target_: jax.random.PRNGKey
+  seed: 20260409

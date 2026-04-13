@@ -128,7 +128,6 @@ class Trainer:
         n_samples_nll: int,
         n_samples_kl: int,
         n_epochs: int,
-        n_data: int,
         opt: optax.GradientTransformation,
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
@@ -144,7 +143,6 @@ class Trainer:
             n_samples_kl: Number of model realisations to use when estimating the KL divergence
                 term of the ELBO.
             n_epochs: Number of epochs to train for.
-            n_data: Number of data points in the training dataset.
             opt: Optax optimizer to use for training.
             opt_state: Optional initial state for the optimizer. If not provided, the optimizer
                 will be initialized with the parameters of the first model passed to `train()`.
@@ -152,7 +150,6 @@ class Trainer:
         self.n_samples_nll = n_samples_nll
         self.n_samples_kl = n_samples_kl
         self.n_epochs = n_epochs
-        self.n_data = n_data
         self.opt = opt
         self._opt_state = opt_state
         self._best_model: Optional[TrainingModel] = None
@@ -175,6 +172,10 @@ class Trainer:
         if self._best_opt_state is None:
             raise ValueError("No model has been trained yet.")
         return self._best_opt_state
+
+    @property
+    def logger(self) -> Optional[SummaryWriter]:
+        return self._logger
 
     def train(
         self,

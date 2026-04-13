@@ -1,0 +1,7 @@
+  _target_: optax.sgd
+  momentum: 0.9
+  learning_rate:
+    _target_: optax.cosine_decay_schedule
+    init_value: 2e-3
+    decay_steps: 14040  # 30 * (60_000 // 128) (for minst_ood)
+    alpha: 0.05

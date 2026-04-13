@@ -76,7 +76,6 @@ def test_regression() -> None:
         n_samples_nll=4,
         n_samples_kl=16,
         n_epochs=10,
-        n_data=len(ds),
         opt=opt,
         metrics=metrics,
     )

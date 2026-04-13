@@ -1,0 +1,11 @@
+_target_: junnx.trainer.Trainer
+n_samples_nll: 8
+n_samples_kl: 32
+n_epochs: 10_000
+loss_method: "fsvi"
+
+defaults:
+  - opt: adam
+  - metrics: regression_default
+  - logger: tensorboard
+  - _self_

@@ -1,0 +1,3 @@
+_target_: junnx.samplers.DataSampler
+n_samples: ???
+data: ???

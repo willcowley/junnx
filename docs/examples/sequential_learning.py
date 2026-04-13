@@ -153,7 +153,6 @@ trainer1 = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
     n_epochs=2_000,
-    n_data=len(ds1),
     opt=opt,
 )
 _ = trainer1.train(model, dl1, key=key)
@@ -172,7 +171,6 @@ trainer2 = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
     n_epochs=4_000,
-    n_data=len(ds2),
     opt=opt,
     opt_state=trainer1.best_opt_state,
 )
