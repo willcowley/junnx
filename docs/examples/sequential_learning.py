@@ -143,11 +143,11 @@ model = TrainingModel(
         bijector=tfp.bijectors.Softplus(),
     ),
     prior=Matern52Prior(lengthscales=(0.4,)),
-    sampler=UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,)),
     variational_dist=GaussianVariationalDistribution(),
 )
 
 opt = optax.adam(1e-3)
+sampler = UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,))
 
 trainer1 = Trainer(
     n_samples_nll=16,
@@ -155,7 +155,7 @@ trainer1 = Trainer(
     n_epochs=2_000,
     opt=opt,
 )
-_ = trainer1.train(model, dl1, key=key)
+_ = trainer1.train(model, dl1, sampler, key=key)
 m = trainer1.best_model
 _plot_model(m, ds1, 1999, 1_024)
 
@@ -176,6 +176,185 @@ trainer2 = Trainer(
 )
 
 _, key = jax.random.split(key)
-_ = trainer2.train(m, dl2, key=key)
+_ = trainer2.train(m, dl2, sampler,
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+                   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   key=key)
 best_model = trainer2.best_model
 _plot_model(best_model, ds2, 5999, 1_024, dss=(ds1,))

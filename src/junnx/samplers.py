@@ -1,14 +1,15 @@
 import abc
+from dataclasses import dataclass
 from typing import Sequence
 
-import equinox as eqx
 import jax
 import jax.numpy as jnp
 
 from junnx.datasets import TensorDataset
 
 
-class Sampler(eqx.Module):
+@dataclass(frozen=True)
+class Sampler:
 
     @abc.abstractmethod
     def __call__(self, key: jnp.ndarray) -> jnp.ndarray: ...
@@ -30,9 +31,9 @@ class UniformSampler(Sampler):
     high: jnp.ndarray
     """The upper bounds of the hypercube."""
 
-    n_dim: int = eqx.field(static=True)
+    n_dim: int
     """The dimensionality of the hypercube."""
-    n_samples: int = eqx.field(static=True)
+    n_samples: int
     """The number of samples to draw from the hypercube on each call."""
 
     def __init__(
@@ -59,9 +60,9 @@ class DataSampler(Sampler):
         n_samples: The number of samples to draw from the hypercube on each call.
     """
 
-    n_samples: int = eqx.field(static=True)
+    n_samples: int
     """The number of samples to draw from the dataset on each call."""
-    data: TensorDataset = eqx.field(static=True)
+    data: TensorDataset
     """The dataset from which to sample."""
 
     def __init__(self, n_samples: int, data: TensorDataset) -> None:

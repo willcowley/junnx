@@ -48,6 +48,7 @@ def test_regression() -> None:
     dl = DataLoader(ds, batch_size=32, shuffle=True, key=key_dl)
     val_dl = DataLoader(val_ds, batch_size=8, shuffle=False, key=key_val)
     ood_dl = DataLoader(ood_ds, batch_size=8, shuffle=False, key=key_ood)
+    sampler = UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,))
 
     # create model
     model = TrainingModel(
@@ -64,7 +65,6 @@ def test_regression() -> None:
             bijector=tfp.bijectors.Softplus(),
         ),
         prior=Matern52Prior(lengthscales=(0.4,)),
-        sampler=UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,)),
         variational_dist=GaussianVariationalDistribution(),
     )
 
@@ -80,7 +80,7 @@ def test_regression() -> None:
         metrics=metrics,
     )
 
-    _ = trainer.train(model, dl, val_dl, key=key_train)
+    _ = trainer.train(model, dl, sampler, val_dl, key=key_train)
     _ = trainer.best_model
 
     _ = Trainer.eval(

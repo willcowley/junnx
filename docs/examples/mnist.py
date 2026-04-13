@@ -55,6 +55,7 @@ schedule = optax.cosine_decay_schedule(
     init_value=2e-3, decay_steps=dl.batches_per_epoch * 30, alpha=0.05
 )
 opt = optax.sgd(schedule, momentum=0.9)
+sampler = DataSampler(data=context_ds, n_samples=128)
 
 mcdropout = False
 
@@ -62,7 +63,6 @@ model = TrainingModel(
     net=StochasticLeNet(key=key_m) if not mcdropout else MCDropoutLeNet(key=key_m),
     likelihood=CategoricalLikelihood(),
     prior=DirichletPrior(concentration=jnp.asarray([0.5] * 10)),
-    sampler=DataSampler(data=context_ds, n_samples=128),
     variational_dist=DirichletVariationalDistribution(),
 )
 
@@ -80,7 +80,7 @@ trainer = Trainer(
     logger=logger,
     loss_method="fsvi" if not mcdropout else "nll",
 )
-_ = trainer.train(model, dl, val_dl, key=key)
+_ = trainer.train(model, dl, sampler, val_dl, key=key)
 model = trainer.best_model
 
 ood_metrics = Trainer.eval(

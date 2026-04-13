@@ -46,14 +46,13 @@ def _main(cfg: DictConfig) -> None:
         net=net,
         likelihood=likelihood,
         prior=prior,
-        sampler=sampler,
         variational_dist=variational_dist,
     )
 
     trainer = instantiate_assert_type(cfg.trainer, Trainer)
 
     key_train = instantiate_assert_type(cfg.key_train, jnp.ndarray)
-    _ = trainer.train(model, dl, val_dl, key=key_train)
+    _ = trainer.train(model, dl, sampler, val_dl, key=key_train)
     model = trainer.best_model
 
     ood_metrics = Trainer.eval(

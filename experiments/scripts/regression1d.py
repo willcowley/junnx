@@ -74,14 +74,13 @@ def _main(cfg: DictConfig) -> None:
         net=net,
         likelihood=likelihood,
         prior=prior,
-        sampler=sampler,
         variational_dist=variational_dist,
     )
 
     key_train = instantiate_assert_type(cfg.key_train, jnp.ndarray)
     trainer = instantiate_assert_type(cfg.trainer, Trainer)
 
-    _ = trainer.train(model, dl, key=key_train)
+    _ = trainer.train(model, dl, sampler, key=key_train)
     model = trainer.best_model
     key_eval = jaxr.PRNGKey(seed=20260305)
     _plot_model(
