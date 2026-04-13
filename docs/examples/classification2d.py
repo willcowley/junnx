@@ -91,11 +91,11 @@ model = TrainingModel(
     ),
     likelihood=CategoricalLikelihood(),
     prior=DirichletPrior(concentration=jnp.array([0.5, 0.5])),  # Jeffrey's prior
-    sampler=UniformSampler(n_dim=2, n_samples=64, low=(-4.0, -4.0), high=(4.0, 4.0)),
     variational_dist=DirichletVariationalDistribution(),
 )
 
 dl = DataLoader(ds, batch_size=32, shuffle=True, key=key)
+sampler = UniformSampler(n_dim=2, n_samples=64, low=(-4.0, -4.0), high=(4.0, 4.0))
 
 opt = optax.adam(1e-3)
 trainer = Trainer(
@@ -104,6 +104,6 @@ trainer = Trainer(
     n_epochs=4_000,
     opt=opt,
 )
-_ = trainer.train(model, dl, key=key)
+_ = trainer.train(model, dl, sampler, key=key)
 m = trainer.best_model
 _plot_model(m, 1999, 1_024)

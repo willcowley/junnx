@@ -9,6 +9,7 @@ def elbo(
     m: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
+    context_x: jnp.ndarray | None,
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
@@ -36,6 +37,7 @@ def elbo(
     """
     # x: [N, D]
     # y: [N, O]
+    # context_x: [M, D]
     batch_size, *_ = x.shape
 
     nll_key, kl_key = jax.random.split(key, 2)
@@ -46,13 +48,12 @@ def elbo(
     nll_loss = -predy.log_prob(y[None]).sum(axis=-1).mean()  # [,]  per-batch NLL
     if loss_method == "nll":
         return nll_loss / batch_size, predf  # [,], [SN, N, O]
-
+    assert loss_method == "fsvi"
+    assert context_x is not None
     # compute KL div
-    context_key, klq_key, klp_key = jax.random.split(kl_key, 3)
-    # TODO: move context point generation outside of jax.jit
-    context_points = m.sampler(context_key)  # [M, D]
-    q = m.variational(context_points, n_samples_kl, key=klq_key)  # [O,]
-    p = m.prior(context_points, n_samples_kl, key=klp_key)
+    klq_key, klp_key = jax.random.split(kl_key, 2)
+    q = m.variational(context_x, n_samples_kl, key=klq_key)  # [O,]
+    p = m.prior(context_x, n_samples_kl, key=klp_key)
     kl_div = tfp.distributions.kl_divergence(q, p)  # [O,]
 
     kl_loss = kl_div.mean()  # [,]

@@ -10,6 +10,7 @@ from tqdm import tqdm
 from junnx.datasets import DataLoader
 from junnx.elbo import elbo
 from junnx.metrics import Metric
+from junnx.samplers import Sampler
 from junnx.train import TrainingModel
 
 
@@ -18,6 +19,7 @@ def loss_fn(
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
+    context_x: jnp.ndarray | None,
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
@@ -30,6 +32,7 @@ def loss_fn(
         m,
         x,
         y,
+        context_x,
         n_samples_nll,
         n_samples_kl,
         n_batches_per_epoch,
@@ -44,6 +47,7 @@ def train_step(
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
+    context_x: jnp.ndarray | None,
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
@@ -84,6 +88,7 @@ def train_step(
         static,
         x,
         y,
+        context_x,
         n_samples_nll,
         n_samples_kl,
         n_batches_per_epoch,
@@ -101,6 +106,7 @@ def val_step(
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
+    context_x: jnp.ndarray | None,
     n_samples_nll: int,
     n_samples_kl: int,
     n_batches_per_epoch: int,
@@ -113,6 +119,7 @@ def val_step(
         static,
         x,
         y,
+        context_x,
         n_samples_nll,
         n_samples_kl,
         n_batches_per_epoch,
@@ -181,8 +188,8 @@ class Trainer:
         self,
         model: TrainingModel,
         dl: DataLoader,
+        sampler: Sampler | None = None,
         val_dl: DataLoader | None = None,
-        ood_dl: DataLoader | None = None,
         *,
         key: jnp.ndarray,
     ) -> TrainingModel:
@@ -207,19 +214,21 @@ class Trainer:
             epoch_loss = jnp.array(0.0)
             epoch_step_count = 0
             for x, y in dl:
-                key, subkey = jax.random.split(key)
+                key, key_step, key_context = jax.random.split(key, 3)
+                context_x = sampler(key_context) if sampler is not None else None
                 loss, trainable, self._opt_state = train_step(
                     trainable,
                     static,
                     x,
                     y,
+                    context_x,
                     self.n_samples_nll,
                     self.n_samples_kl,
                     dl.batches_per_epoch,
                     self.opt,
                     self._opt_state,
                     self._loss_method,
-                    key=subkey,
+                    key=key_step,
                 )
                 epoch_loss += loss
                 epoch_step_count += 1
@@ -234,17 +243,19 @@ class Trainer:
                 epoch_step_count = 0
                 val_metrics = {k: _m.empty() for k, _m in self._metrics.items()}
                 for val_x, val_y in val_dl:
-                    key, subkey = jax.random.split(key)
+                    key, key_step, key_context = jax.random.split(key, 3)
+                    val_context_x = sampler(key_context) if sampler is not None else None
                     val_loss, val_predf = val_step(
                         trainable,
                         static,
                         val_x,
                         val_y,
+                        val_context_x,
                         self.n_samples_nll,
                         self.n_samples_kl,
                         val_dl.batches_per_epoch,
                         self._loss_method,
-                        key=subkey,
+                        key=key_step,
                     )
                     val_ydist = eqx.combine(trainable, static).predict_ydist(val_predf)
                     for k, metric in self._metrics.items():

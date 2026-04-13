@@ -62,11 +62,11 @@ model = TrainingModel(
         bijector=tfp.bijectors.Softplus(),
     ),
     prior=Matern52Prior(lengthscales=(0.4,)),
-    sampler=UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,)),
     variational_dist=GaussianVariationalDistribution(),
 )
 
 dl = DataLoader(ds, batch_size=32, shuffle=True, key=key)
+sampler = UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,))
 
 opt = optax.adam(1e-3)
 
@@ -107,6 +107,6 @@ trainer = Trainer(
     n_epochs=4_000,
     opt=opt,
 )
-_ = trainer.train(model, dl, key=key)
+_ = trainer.train(model, dl, sampler, key=key)
 m = trainer.best_model
 _plot_model(m, 3999, 1_024)

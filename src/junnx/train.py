@@ -5,7 +5,6 @@ from jax import numpy as jnp
 from junnx.likelihoods import Likelihood
 from junnx.net import StochasticNet
 from junnx.priors import Prior
-from junnx.samplers import Sampler
 from junnx.variational import VariationalDistribution
 
 _JITTER = 1e-6
@@ -22,11 +21,6 @@ class TrainingModel(eqx.Module):
     """The likelihood of observing the data given function values, P(Y|f)."""
     prior: Prior
     """The prior distribution over the function values, P(f)."""
-    sampler: Sampler
-    """
-    Sampler from the input space used to compute the KL divergence between the variational
-    distribution over f and the prior.
-    """
     variational_dist: VariationalDistribution
     """The variational distribution used to approximate the predictive distribution over f."""
 
@@ -37,10 +31,6 @@ class TrainingModel(eqx.Module):
         # Explicitly move prior to static
         static = eqx.tree_at(lambda m: m.prior, static, self.prior)
         trainable = eqx.tree_at(lambda m: m.prior, trainable, None)
-
-        # Explicitly move sampler to static
-        static = eqx.tree_at(lambda m: m.sampler, static, self.sampler)
-        trainable = eqx.tree_at(lambda m: m.sampler, trainable, None)
 
         # Explicitly move var_dist to static
         static = eqx.tree_at(lambda m: m.variational_dist, static, self.variational_dist)
