@@ -105,6 +105,7 @@ class StandardizeTransformFn(DataTransformFn):
         if self.batch_axis is not None:
             mean = jnp.squeeze(mean, axis=self.batch_axis)
             std = jnp.squeeze(std, axis=self.batch_axis)
+        # tfpb.Chain applies bijectors from right to left
         return tfpb.Chain([tfpb.Scale(1 / std), tfpb.Shift(-mean)])
 
 

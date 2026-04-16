@@ -4,12 +4,18 @@ import jax.numpy as jnp
 import jax.random as jaxr
 import numpy.testing as npt
 import pytest
+import tensorflow_probability.substrates.jax.bijectors as tfpb
 
-from junnx.datasets import DataLoader, TensorDataset
+from junnx.datasets import (
+    DataLoader,
+    StandardizeTransformFn,
+    TensorDataset,
+    TransformedTensorDataset,
+)
 
 
-def _get_dummy_data(n_data: int) -> tuple[jnp.ndarray, jnp.ndarray]:
-    key = jaxr.PRNGKey(0)
+def _get_dummy_data(n_data: int, seed: int = 0) -> tuple[jnp.ndarray, jnp.ndarray]:
+    key = jaxr.PRNGKey(seed)
     key_x, key_y = jaxr.split(key, 2)
     dummy_x = jaxr.normal(key_x, shape=(n_data, 3))
     dummy_y = jaxr.normal(key_y, shape=(n_data, 1))
@@ -80,3 +86,58 @@ def test_data_loader_shuffle() -> None:
     for i, (x_batch, y_batch) in enumerate(dl):
         batch_idxs = set(y_batch[..., 0].tolist())
         assert batch_idxs != batch_idxss[i]  # different batches each epoch
+
+
+def test_transformed_tensor_dataset() -> None:
+    dummy_x, dummy_y = _get_dummy_data(16)
+    ds = TensorDataset(dummy_x, dummy_y)
+
+    x_bij = tfpb.Chain([tfpb.Shift(jnp.array(1.0)), tfpb.Scale(jnp.array(2.0))])
+    ds_transformed = TransformedTensorDataset(ds, x_bij)
+
+    npt.assert_allclose(ds_transformed.x, 2 * ds.x + 1.0)
+    npt.assert_allclose(ds_transformed.y, ds.y)
+
+    x_bij_ds = ds_transformed.xbijector
+    assert isinstance(x_bij_ds, tfpb.Bijector)
+    x_bij_ds_fwd = x_bij_ds.forward(ds.x)
+    npt.assert_allclose(x_bij_ds_fwd, ds_transformed.x)
+    x_bij_ds_inv = x_bij_ds.inverse(ds_transformed.x)
+    npt.assert_allclose(x_bij_ds_inv, ds.x)
+
+    assert ds_transformed.ybijector is None
+
+
+def test_transformed_tensor_dataset_ybijector() -> None:
+    dummy_x, dummy_y = _get_dummy_data(16)
+    ds = TensorDataset(dummy_x, dummy_y)
+
+    x_bij = tfpb.Identity()
+    y_bij = tfpb.Chain([tfpb.Shift(jnp.array(-1.0)), tfpb.Scale(jnp.array(0.5))])
+
+    ds_transformed = TransformedTensorDataset(ds, x_bij, y_bij)
+
+    npt.assert_allclose(ds_transformed.x, ds.x)
+    npt.assert_allclose(ds_transformed.y, 0.5 * ds.y - 1.0)
+
+    y_bij_ds = ds_transformed.ybijector
+    assert isinstance(y_bij_ds, tfpb.Bijector)
+    y_bij_ds_fwd = y_bij_ds.forward(ds.y)
+    npt.assert_allclose(y_bij_ds_fwd, ds_transformed.y)
+    y_bij_ds_inv = y_bij_ds.inverse(ds_transformed.y)
+    npt.assert_allclose(y_bij_ds_inv, ds.y)
+
+
+def test_standardize_transform_fn() -> None:
+    n_data = 64
+    dummy_x, _ = _get_dummy_data(n_data)  # [N, 3] ~ N(0, 1)
+
+    transform_fn = StandardizeTransformFn(axis=0)
+    one_two_three = jnp.array([[1.0, 2.0, 3.0]])  # [1, 3]
+
+    x = one_two_three * dummy_x - one_two_three
+    x_bij = transform_fn.fit(x)
+    y = x_bij(x)
+
+    npt.assert_allclose(y.mean(axis=0), 0.0, atol=1e-6, rtol=0.0)
+    npt.assert_allclose(y.std(axis=0), 1.0, atol=1e-6, rtol=0.0)
