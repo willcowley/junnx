@@ -99,6 +99,66 @@ class DenseStochasticNet(StochasticNet):
         return x
 
 
+class MCDropoutMLP(StochasticNet):
+
+    layers: Sequence[eqx.nn.Linear]
+    """The layers of the MLP."""
+
+    drop: eqx.nn.Dropout
+    """The dropout layer."""
+    depth: int = eqx.field(static=True)
+    """The number of hidden layers, including the output layer."""
+    n_hidden: int = eqx.field(static=True)
+    """The number of units in each hidden layer."""
+    n_in: int = eqx.field(static=True)
+    """The number of input features."""
+    n_out: int = eqx.field(static=True)
+    """The number of output features."""
+    activation: str = eqx.field(static=True)
+    """The non-linear activation function to use. Defaults to "silu"."""
+
+    def __init__(
+        self,
+        n_in: int,
+        n_out: int,
+        n_hidden: int,
+        depth: int,
+        use_bias: bool = True,
+        activation: str = "silu",
+        dropout_rate: float = 0.1,
+        *,
+        key: jnp.ndarray,
+    ) -> None:
+        self.n_in = n_in
+        self.n_out = n_out
+        self.n_hidden = n_hidden
+        self.depth = depth
+        self.activation = activation
+
+        layers = []
+        for i in range(depth + 1):
+            layer_key, key = jax.random.split(key, 2)
+            if i == 0:
+                layer = eqx.nn.Linear(n_in, n_hidden, use_bias, key=layer_key)
+            elif i == depth:
+                layer = eqx.nn.Linear(n_hidden, n_out, use_bias, key=layer_key)
+            else:
+                layer = eqx.nn.Linear(n_hidden, n_hidden, use_bias, key=layer_key)
+            layers.append(layer)
+        self.layers = layers
+
+        self.drop = eqx.nn.Dropout(p=dropout_rate)
+
+    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        for layer in self.layers[:-1]:
+            dropout_key, key = jax.random.split(key, 2)
+            x = layer(x)
+            x = _ACTIVATIONS[self.activation](x)
+            x = self.drop(x, inference=False, key=dropout_key)
+        x = self.layers[-1](x)
+        return x
+
+
 class StochasticLeNet(StochasticNet):
     """
     A stochastic version of the LeNet convolutional architecture.
