@@ -1,0 +1,5 @@
+defaults:
+  - stochastic_mlp
+  - _self_
+
+_target_: junnx.net.MCDropoutMLP
