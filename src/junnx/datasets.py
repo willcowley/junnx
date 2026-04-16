@@ -1,7 +1,12 @@
-from typing import Iterator
+import abc
+from dataclasses import dataclass
+from typing import Iterator, Sequence
 
 import jax
 import jax.numpy as jnp
+import tensorflow_probability.substrates.jax.bijectors as tfpb
+
+_EPS = 1e-12
 
 
 class Dataset:
@@ -52,6 +57,56 @@ class TensorDataset(Dataset):
         x = jnp.concatenate([self.x, other.x], axis=0)
         y = jnp.concatenate([self.y, other.y], axis=0)
         return TensorDataset(x, y)
+
+
+class TransformedTensorDataset(TensorDataset):
+
+    def __init__(
+        self,
+        ds: TensorDataset,
+        xbijector: tfpb.Bijector,
+        ybijector: tfpb.Bijector | None = None,
+    ) -> None:
+        self._xbijector = xbijector
+        self._ybijector = ybijector
+        x = xbijector(ds.x)
+        y = ds.y
+        if ybijector is not None:
+            y = ybijector(y)
+        super().__init__(x, y)
+
+    @property
+    def xbijector(self) -> tfpb.Bijector:
+        return self._xbijector
+
+    @property
+    def ybijector(self) -> tfpb.Bijector | None:
+        return self._ybijector
+
+
+@dataclass(frozen=True)
+class DataTransformFn(abc.ABC):
+
+    @abc.abstractmethod
+    def fit(self, x: jnp.ndarray) -> tfpb.Bijector: ...
+
+
+@dataclass(frozen=True)
+class StandardizeTransformFn(DataTransformFn):
+
+    axis: int | Sequence[int] | None = None
+    keepdims: bool = True
+    batch_axis: int | None = 0
+
+    def fit(self, x: jnp.ndarray) -> tfpb.Bijector:
+        # x: [B, ...]
+        mean = jnp.mean(x, axis=self.axis, keepdims=self.keepdims)
+        std = jnp.std(x, axis=self.axis, keepdims=self.keepdims) + _EPS
+        if self.batch_axis is not None:
+            mean = jnp.squeeze(mean, axis=self.batch_axis)
+            std = jnp.squeeze(std, axis=self.batch_axis)
+        # tfpb.Chain applies bijectors from right to left
+        return tfpb.Chain([tfpb.Scale(1 / std), tfpb.Shift(-mean)])
 
 
 class DataLoader:

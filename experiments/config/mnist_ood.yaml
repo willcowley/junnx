@@ -1,6 +1,9 @@
 ds:
   _target_: junnx.data.MNISTDataset
   split: "train"
+ds_x_transform:
+  _target_: junnx.datasets.StandardizeTransformFn
+  axis: [0, 2, 3]  # [B, C, H, W]
 val_ds:
   _target_: junnx.data.MNISTDataset
   split: "test"
@@ -38,7 +41,6 @@ trainer:
   n_epochs: 30
 
 sampler:
-  data: ${context_ds}
   n_samples: ${batch_size}
 
 hydra:
