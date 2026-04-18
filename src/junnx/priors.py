@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
 from junnx.net import StochasticNet
-from junnx.variational import VariationalDistribution
+from junnx.variational import GaussianVariationalDistribution, VariationalDistribution
 
 _JITTER = 1e-6
 _EPS = 1e-12
@@ -33,6 +33,17 @@ class SampleStochasticNetPrior(Prior):
         # x: [N, D]
         predf = self.net.predict_f_samples(x, n_samples, key=key)  # [S, N, O]
         return self.variational_dist(predf)  # [O, N]
+
+
+class TractableStochasticNetPrior(Prior):
+
+    net: StochasticNet
+
+    def __call__(
+        self, x: jnp.ndarray, n_samples: int, key: jnp.ndarray
+    ) -> tfp.distributions.Distribution:
+        mean, cov = self.net.tractable_f_mean_cov(x, key=key)
+        return GaussianVariationalDistribution().from_mean_cov(mean, cov)
 
 
 class DirichletPrior(Prior):
