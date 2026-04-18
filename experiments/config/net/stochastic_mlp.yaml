@@ -1,0 +1,10 @@
+_target_: junnx.net.DenseStochasticNet
+n_in: 1
+n_out: 1
+n_hidden: 128
+depth: 3
+use_bias: true
+activation: "silu"
+key:
+  _target_: jax.random.PRNGKey
+  seed: 42

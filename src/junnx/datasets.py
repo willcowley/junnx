@@ -1,31 +1,12 @@
-from enum import Enum, unique
-from pathlib import Path
-from typing import Iterator, Mapping, Optional, Protocol
+import abc
+from dataclasses import dataclass
+from typing import Iterator, Sequence
 
 import jax
 import jax.numpy as jnp
-from sklearn.datasets import make_moons as sk_make_moons
+import tensorflow_probability.substrates.jax.bijectors as tfpb
 
-
-@unique
-class _ToyData(str, Enum):
-    SNELSON05 = "snelson"
-
-
-class _ToyDataLoader(Protocol):
-    def __call__(self) -> tuple[jnp.ndarray, jnp.ndarray]: ...
-
-
-def _load_snelson05() -> tuple[jnp.ndarray, jnp.ndarray]:
-    filename = str(Path(__file__).parent / "data" / "snelson05.npy")
-    data = jnp.load(filename)
-    x = data[:, :1] * 2 / 3 - 2  # scale to [-2, 2]
-    y = data[:, 1:] * 4 / 3 + 2 / 3  # scale to [-2, 2]
-    mask = (x >= -1) & (x < 0)  # remove points in [-1, 0)
-    return x[~mask][:, None], y[~mask][:, None]
-
-
-_TOY_DATA_FN: Mapping[_ToyData, _ToyDataLoader] = {_ToyData.SNELSON05: _load_snelson05}
+_EPS = 1e-12
 
 
 class Dataset:
@@ -43,8 +24,8 @@ class TensorDataset(Dataset):
     """Dataset wrapping x and y tensors."""
 
     def __init__(self, x: jnp.ndarray, y: jnp.ndarray) -> None:
-        xshape, _ = x.shape
-        yshape, _ = y.shape
+        xshape, *_ = x.shape
+        yshape, *_ = y.shape
         if xshape != yshape:
             raise ValueError(
                 f"Expected x and y to have the same leading dimension, got {x.shape} and {y.shape}"
@@ -66,29 +47,66 @@ class TensorDataset(Dataset):
     def __getitem__(self, idx: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
         return self._x[idx], self._y[idx]
 
+    def __add__(self, other: "TensorDataset") -> "TensorDataset":
+        if not isinstance(other, TensorDataset):
+            raise TypeError
+        if self.x.shape[1:] != other.x.shape[1:]:
+            raise ValueError
+        if self.y.shape[1:] != other.y.shape[1:]:
+            raise ValueError
+        x = jnp.concatenate([self.x, other.x], axis=0)
+        y = jnp.concatenate([self.y, other.y], axis=0)
+        return TensorDataset(x, y)
 
-class SnelsonDataset(TensorDataset):
-    """
-    Dataset derived from Figure 1 of Snelson & Gaharami 2005 "Sparse Gaussian Processes using
-    Pseudo-inputs".
-    """
 
-    def __init__(self) -> None:
-        x, y = _TOY_DATA_FN[_ToyData.SNELSON05]()
+class TransformedTensorDataset(TensorDataset):
+
+    def __init__(
+        self,
+        ds: TensorDataset,
+        xbijector: tfpb.Bijector,
+        ybijector: tfpb.Bijector | None = None,
+    ) -> None:
+        self._xbijector = xbijector
+        self._ybijector = ybijector
+        x = xbijector(ds.x)
+        y = ds.y
+        if ybijector is not None:
+            y = ybijector(y)
         super().__init__(x, y)
 
+    @property
+    def xbijector(self) -> tfpb.Bijector:
+        return self._xbijector
 
-class MakeMoonsDataset(TensorDataset):
-    """Dataset dervied from the sci-kit learn `make_moons` function."""
+    @property
+    def ybijector(self) -> tfpb.Bijector | None:
+        return self._ybijector
 
-    def __init__(self, n_samples: int | tuple[int, int], noise: Optional[float], seed: int):
-        x, y = sk_make_moons(n_samples=n_samples, noise=noise, shuffle=True, random_state=seed)
-        # centre x on origin
-        x[..., 1:] -= 0.25
-        x[..., :1] -= 0.5
-        x = jnp.asarray(x)  # (N, 2)
-        y = jnp.asarray(y)[:, None]  # (N, 1)
-        super().__init__(x, y)
+
+@dataclass(frozen=True)
+class DataTransformFn(abc.ABC):
+
+    @abc.abstractmethod
+    def fit(self, x: jnp.ndarray) -> tfpb.Bijector: ...
+
+
+@dataclass(frozen=True)
+class StandardizeTransformFn(DataTransformFn):
+
+    axis: int | Sequence[int] | None = None
+    keepdims: bool = True
+    batch_axis: int | None = 0
+
+    def fit(self, x: jnp.ndarray) -> tfpb.Bijector:
+        # x: [B, ...]
+        mean = jnp.mean(x, axis=self.axis, keepdims=self.keepdims)
+        std = jnp.std(x, axis=self.axis, keepdims=self.keepdims) + _EPS
+        if self.batch_axis is not None:
+            mean = jnp.squeeze(mean, axis=self.batch_axis)
+            std = jnp.squeeze(std, axis=self.batch_axis)
+        # tfpb.Chain applies bijectors from right to left
+        return tfpb.Chain([tfpb.Scale(1 / std), tfpb.Shift(-mean)])
 
 
 class DataLoader:
@@ -120,6 +138,10 @@ class DataLoader:
     @property
     def batch_size(self) -> int:
         return self._batch_size
+
+    @property
+    def batches_per_epoch(self) -> int:
+        return len(self.data) // self.batch_size
 
     def __iter__(self) -> Iterator[tuple[jnp.ndarray, jnp.ndarray]]:
         # iterates over the data in batches of size `batch_size`

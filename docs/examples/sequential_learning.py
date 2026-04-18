@@ -30,7 +30,7 @@ import tensorflow_probability.substrates.jax as tfp
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
-from junnx.priors import Matern52Prior, StochasticNetPrior
+from junnx.priors import Matern52Prior, SampleStochasticNetPrior
 from junnx.samplers import UniformSampler
 from junnx.train import TrainingModel
 from junnx.trainer import Trainer
@@ -143,26 +143,25 @@ model = TrainingModel(
         bijector=tfp.bijectors.Softplus(),
     ),
     prior=Matern52Prior(lengthscales=(0.4,)),
-    sampler=UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,)),
     variational_dist=GaussianVariationalDistribution(),
 )
 
 opt = optax.adam(1e-3)
+sampler = UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,))
 
 trainer1 = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
-    n_epochs=2,  # _000,
-    n_data=len(ds1),
+    n_epochs=2_000,
     opt=opt,
 )
-_ = trainer1.train(model, dl1, key=key)
+_ = trainer1.train(model, dl1, sampler, key=key)
 m = trainer1.best_model
 _plot_model(m, ds1, 1999, 1_024)
 
 trainable, static = m.partition()
 
-prior_net = StochasticNetPrior(
+prior_net = SampleStochasticNetPrior(
     net=copy.deepcopy(m.net), variational_dist=GaussianVariationalDistribution()
 )
 static = eqx.tree_at(lambda _m: _m.prior, static, prior_net)
@@ -172,12 +171,11 @@ trainer2 = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
     n_epochs=4_000,
-    n_data=len(ds2),
     opt=opt,
     opt_state=trainer1.best_opt_state,
 )
 
 _, key = jax.random.split(key)
-_ = trainer2.train(m, dl2, key=key)
+_ = trainer2.train(m, dl2, sampler, key=key)
 best_model = trainer2.best_model
 _plot_model(best_model, ds2, 5999, 1_024, dss=(ds1,))

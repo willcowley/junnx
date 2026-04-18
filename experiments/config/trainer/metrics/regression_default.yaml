@@ -1,0 +1,7 @@
+  _target_: builtins.dict
+  RMSE:
+    _target_: hydra.utils.get_class
+    path: junnx.metrics.RMSE
+  NLL:
+    _target_: hydra.utils.get_class
+    path: junnx.metrics.NLL

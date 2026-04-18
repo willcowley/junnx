@@ -24,10 +24,10 @@ jobs:
       - name: Set up Poetry
         uses: snok/install-poetry@v1
         with:
-          version: 2.2.1
+          version: 2.3.3
       - name: Install dependencies
         run: |
-          poetry install --without cuda --without dev
+          poetry install --without cuda --without dev --without data
       - name: Run tests
         run: |
           JAX_ENABLE_X64=1 poetry run task test

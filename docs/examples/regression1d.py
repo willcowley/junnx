@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 import optax
 import tensorflow_probability.substrates.jax as tfp
 
-from junnx.datasets import DataLoader, SnelsonDataset
+from junnx.data import SnelsonDataset
+from junnx.datasets import DataLoader
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
@@ -61,11 +62,11 @@ model = TrainingModel(
         bijector=tfp.bijectors.Softplus(),
     ),
     prior=Matern52Prior(lengthscales=(0.4,)),
-    sampler=UniformSampler(n_dim=1, n_samples=64, low=(-10.0,), high=(10.0,)),
     variational_dist=GaussianVariationalDistribution(),
 )
 
 dl = DataLoader(ds, batch_size=32, shuffle=True, key=key)
+sampler = UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,))
 
 opt = optax.adam(1e-3)
 
@@ -104,9 +105,8 @@ trainer = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
     n_epochs=4_000,
-    n_data=len(ds),
     opt=opt,
 )
-_ = trainer.train(model, dl, key=key)
+_ = trainer.train(model, dl, sampler, key=key)
 m = trainer.best_model
 _plot_model(m, 3999, 1_024)

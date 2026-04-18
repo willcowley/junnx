@@ -21,7 +21,7 @@ class Prior(eqx.Module):
     ) -> tfp.distributions.Distribution: ...
 
 
-class StochasticNetPrior(Prior):
+class SampleStochasticNetPrior(Prior):
     """Prior based on a `DenseStochasticNet` and `VariationalDistribution`."""
 
     net: StochasticNet
@@ -85,7 +85,7 @@ class IsotropicStationaryKernelPrior(Prior):
         self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
     ) -> tfp.distributions.Distribution:
         # x: [N, D]
-        N, _ = x.shape
+        N, *_ = x.shape
         cov = self.kernel(x)  # [N, N]
         cov = 0.5 * (cov + cov.T)  # enforce symmetry
         L = jnp.linalg.cholesky(cov + _JITTER * jnp.eye(N, dtype=cov.dtype))  # [N, N]

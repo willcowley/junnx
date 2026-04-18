@@ -1,0 +1,35 @@
+batch_size: 32
+key_dl:
+  _target_: jax.random.PRNGKey
+  seed: 0
+key_train:
+  _target_: jax.random.PRNGKey
+  seed: 20260411
+
+defaults:
+  - ds: snelson
+  - likelihood: gaussian_mvnd
+  - net: stochastic_mlp
+  - prior: matern52
+  - sampler: uniform
+  - variational: gaussian
+  - trainer: default
+  - _self_
+
+trainer:
+  n_epochs: 2_000
+
+prior:
+  lengthscales: [0.4]
+
+sampler:
+  n_samples: 64
+  low: [-10.0]
+  high: [10.0]
+
+hydra:
+  sweep:
+    dir: ${oc.env:EXPERIMENTS_DIR}/regression1d/sweeps/${now:%Y%m%d_%H%M%S}
+
+  run:
+    dir: ${oc.env:EXPERIMENTS_DIR}/regression1d/out/${now:%Y%m%d_%H%M%S}

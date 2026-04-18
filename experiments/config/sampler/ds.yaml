@@ -1,0 +1,4 @@
+_target_: junnx.samplers.DataSampler
+_partial_: true
+n_samples: ???
+data: ???

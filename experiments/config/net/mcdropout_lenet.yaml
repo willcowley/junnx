@@ -1,0 +1,5 @@
+_target_: junnx.net.MCDropoutLeNet
+dropout_rate: 0.5
+key:
+  _target_: jax.random.PRNGKey
+  seed: 20260409

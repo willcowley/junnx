@@ -1,0 +1,51 @@
+ds:
+  _target_: junnx.data.MNISTDataset
+  split: "train"
+ds_x_transform:
+  _target_: junnx.datasets.StandardizeTransformFn
+  axis: [0, 2, 3]  # [B, C, H, W]
+val_ds:
+  _target_: junnx.data.MNISTDataset
+  split: "test"
+context_ds:
+  _target_: junnx.data.EMNISTDataset
+  split: "test"
+ood_ds:
+  _target_: junnx.data.FashionMNISTDataset
+  split: "test"
+
+key_dl:
+  _target_: jax.random.PRNGKey
+  seed: 42
+
+key_train:
+  _target_: jax.random.PRNGKey
+  seed: 0
+
+batch_size: 128
+
+defaults:
+  - net: stochastic_lenet
+  - likelihood: categorical
+  - prior: dirichlet_10
+  - trainer: default
+  - sampler: ds
+  - variational: dirichlet
+  - override trainer/metrics: classification_default
+  - override trainer/opt: sgd_cosine_decay
+  - _self_
+
+trainer:
+  n_samples_nll: 4
+  n_samples_kl: 16
+  n_epochs: 30
+
+sampler:
+  n_samples: ${batch_size}
+
+hydra:
+  sweep:
+    dir: ${oc.env:EXPERIMENTS_DIR}/mnist_ood/sweeps/${now:%Y%m%d_%H%M%S}
+
+  run:
+    dir: ${oc.env:EXPERIMENTS_DIR}/mnist_ood/out/${now:%Y%m%d_%H%M%S}

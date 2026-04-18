@@ -1,0 +1,2 @@
+_target_: tensorboardX.SummaryWriter
+log_dir: ${hydra:runtime.output_dir}

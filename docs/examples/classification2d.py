@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 import optax
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from junnx.datasets import DataLoader, MakeMoonsDataset
+from junnx.data import MakeMoonsDataset
+from junnx.datasets import DataLoader
 from junnx.likelihoods import CategoricalLikelihood
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
@@ -36,7 +37,7 @@ from junnx.variational import DirichletVariationalDistribution
 ds = MakeMoonsDataset(n_samples=256, noise=0.2, seed=42)
 
 fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-ax.scatter(ds.x[:, 0], ds.x[:, 1], c=ds.y[:, 0], s=6, edgecolor="k", zorder=1)
+ax.scatter(ds.x[:, 0], ds.x[:, 1], c=ds.y, s=6, edgecolor="k", zorder=1)
 
 # fig.savefig("/tmp/classification2d.png", dpi=300)
 
@@ -52,7 +53,6 @@ def _plot_model(model: TrainingModel, i: int, n_samples: int = 32) -> None:
         lambda _k: model.net.predict_f_samples(x, 1, key=_k), keys, batch_size=64
     )  # [S, 1, N*N, O]
     predf = predf[..., 0, :, :]  # [S, N*N, O]
-    # predf = model.predict_f_samples(x, n_samples, key=jax.random.PRNGKey(0))  # [S, N*N, O]
     likelihood = model.likelihood
     assert isinstance(likelihood, CategoricalLikelihood)
     predp = likelihood.probs(predf)[..., :1]  # [S, N*N, 1],  P(class 0)
@@ -64,7 +64,7 @@ def _plot_model(model: TrainingModel, i: int, n_samples: int = 32) -> None:
     imshow_kwargs = {"extent": [-4, 4, -4, 4], "origin": "lower", "vmin": 0.0}
     append_ax_kwargs = {"position": "right", "size": "5%", "pad": 0.05}
     labels = [r"$\mathbb{E}\,[p(y|\mathcal{D})]$", r"$\mathbb{Var}\,[p(y|\mathcal{D})]$"]
-    for ax, z, vmax, label in zip(axes, [p_mean, p_var], [1.0, 0.125], labels):
+    for ax, z, vmax, label in zip(axes, [p_mean, p_var], [1.0, 0.2], labels):
         im = ax.imshow(z, vmax=vmax, **imshow_kwargs)
         cax = make_axes_locatable(ax).append_axes(**append_ax_kwargs)
         fig.colorbar(im, cax=cax, orientation="vertical", label=label)
@@ -91,20 +91,19 @@ model = TrainingModel(
     ),
     likelihood=CategoricalLikelihood(),
     prior=DirichletPrior(concentration=jnp.array([0.5, 0.5])),  # Jeffrey's prior
-    sampler=UniformSampler(n_dim=2, n_samples=32, low=(-4.0, -4.0), high=(4.0, 4.0)),
     variational_dist=DirichletVariationalDistribution(),
 )
 
 dl = DataLoader(ds, batch_size=32, shuffle=True, key=key)
+sampler = UniformSampler(n_dim=2, n_samples=64, low=(-4.0, -4.0), high=(4.0, 4.0))
 
 opt = optax.adam(1e-3)
 trainer = Trainer(
     n_samples_nll=16,
     n_samples_kl=64,
-    n_epochs=2_000,
-    n_data=len(ds),
+    n_epochs=4_000,
     opt=opt,
 )
-_ = trainer.train(model, dl, key=key)
+_ = trainer.train(model, dl, sampler, key=key)
 m = trainer.best_model
 _plot_model(m, 1999, 1_024)

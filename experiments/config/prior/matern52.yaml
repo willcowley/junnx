@@ -1,0 +1,2 @@
+_target_: junnx.priors.Matern52Prior
+lengthscales: [1.0]

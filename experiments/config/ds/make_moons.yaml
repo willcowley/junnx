@@ -1,0 +1,4 @@
+_target_: junnx.data.MakeMoonsDataset
+n_samples: 256
+noise: 0.2
+seed: 42
