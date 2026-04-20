@@ -17,7 +17,6 @@
 
 # %%
 
-import copy
 from typing import Optional, Sequence
 
 import equinox as eqx
@@ -30,7 +29,7 @@ import tensorflow_probability.substrates.jax as tfp
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
 from junnx.net import DenseStochasticNet
-from junnx.priors import Matern52Prior, SampleStochasticNetPrior
+from junnx.priors import Matern52Prior, TractableStochasticNetPrior
 from junnx.samplers import UniformSampler
 from junnx.train import TrainingModel
 from junnx.trainer import Trainer
@@ -150,10 +149,7 @@ opt = optax.adam(1e-3)
 sampler = UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,))
 
 trainer1 = Trainer(
-    n_samples_nll=16,
-    n_samples_kl=64,
-    n_epochs=2_000,
-    opt=opt,
+    n_samples_nll=16, n_samples_kl=64, n_epochs=2_000, opt=opt, loss_method="fsvi-tractable"
 )
 _ = trainer1.train(model, dl1, sampler, key=key)
 m = trainer1.best_model
@@ -161,9 +157,9 @@ _plot_model(m, ds1, 1999, 1_024)
 
 trainable, static = m.partition()
 
-prior_net = SampleStochasticNetPrior(
-    net=copy.deepcopy(m.net), variational_dist=GaussianVariationalDistribution()
-)
+m_net = m.net
+assert isinstance(m_net, DenseStochasticNet)
+prior_net = TractableStochasticNetPrior(net=m_net)
 static = eqx.tree_at(lambda _m: _m.prior, static, prior_net)
 m = eqx.combine(trainable, static)
 
@@ -173,6 +169,7 @@ trainer2 = Trainer(
     n_epochs=4_000,
     opt=opt,
     opt_state=trainer1.best_opt_state,
+    loss_method="fsvi-tractable",
 )
 
 _, key = jax.random.split(key)

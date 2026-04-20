@@ -31,6 +31,9 @@ class StochasticNet(eqx.Module):
         predf = jax.vmap(jax.vmap(self, in_axes=(0, None)), in_axes=(None, 0))(x, keys)
         return predf  # [S, N, O]
 
+
+class TractableStochasticNet(StochasticNet):
+
     def tractable_f_mean_cov(
         self, x: jnp.ndarray, key: jnp.ndarray
     ) -> tuple[jnp.ndarray, jnp.ndarray]:
@@ -39,10 +42,34 @@ class StochasticNet(eqx.Module):
         covariance of the 'distribution over functions' represented by the `StochasticNet` at
         input locations `x`.
         """
-        raise NotImplementedError
+        # x: [N, D]
+        x = jax.vmap(self._call_wout_last_layer, in_axes=(0, None))(x, key)  # [N, H]
+
+        w_mean = self.last_layer.w_mean  # [O, H]
+        w_var = self.last_layer.w_var  # [O, H]
+        b = self.last_layer.bias  # [O,] or None
+
+        mean = w_mean @ x.T  # [O, N]
+        if b is not None:
+            mean = mean + b[:, None]  # [O, N]
+        cov = jnp.einsum("nh,oh,mh->onm", x, w_var, x)  # [O, N, N]
+        return mean, cov
+
+    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+        key, key_last = jax.random.split(key, 2)
+        x = self._call_wout_last_layer(x, key)
+        x = self.last_layer(x, key_last)
+        return x
+
+    @abc.abstractmethod
+    def _call_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray: ...
+
+    @property
+    @abc.abstractmethod
+    def last_layer(self) -> DenseStochasticLayer: ...
 
 
-class DenseStochasticNet(StochasticNet):
+class DenseStochasticNet(TractableStochasticNet):
     """
     Standard Multi-Layer Perceptron (feed-forward network) with stochastic weights.
 
@@ -107,27 +134,9 @@ class DenseStochasticNet(StochasticNet):
             x = _ACTIVATIONS[self.activation](x)
         return x
 
-    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
-        key, key_last = jax.random.split(key, 2)
-        x = self._call_wout_last_layer(x, key)
-        x = self.layers[-1](x, key_last)
-        return x
-
-    def tractable_f_mean_cov(
-        self, x: jnp.ndarray, key: jnp.ndarray
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
-        # x: [N, D]
-        x = jax.vmap(self._call_wout_last_layer, in_axes=(0, None))(x, key)  # [N, H]
-
-        w_mean = self.layers[-1].w_mean  # [O, H]
-        w_var = self.layers[-1].w_var  # [O, H]
-        b = self.layers[-1].bias  # [O,] or None
-
-        mean = w_mean @ x.T  # [O, N]
-        if b is not None:
-            mean = mean + b[:, None]  # [O, N]
-        cov = jnp.einsum("nh,oh,mh->onm", x, w_var, x)  # [O, N, N]
-        return mean, cov
+    @property
+    def last_layer(self) -> DenseStochasticLayer:
+        return self.layers[-1]
 
 
 class MCDropoutMLP(StochasticNet):
@@ -190,7 +199,7 @@ class MCDropoutMLP(StochasticNet):
         return x
 
 
-class StochasticLeNet(StochasticNet):
+class StochasticLeNet(TractableStochasticNet):
     """
     A stochastic version of the LeNet convolutional architecture.
     """
@@ -230,9 +239,9 @@ class StochasticLeNet(StochasticNet):
         x = self.fc3(x, fc3_key)
         return x
 
-    def __call__(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
+    def _call_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
         x = self._conv_backbone(x)
-        x = self._stochastic_mlp(x, key)
+        x = self._stochastic_mlp_wout_last_layer(x, key)
         return x
 
     def predict_f_samples(
@@ -244,6 +253,10 @@ class StochasticLeNet(StochasticNet):
             x, keys
         )
         return predf  # [S, N, O]
+
+    @property
+    def last_layer(self) -> DenseStochasticLayer:
+        return self.fc3
 
 
 class MCDropoutLeNet(StochasticNet):

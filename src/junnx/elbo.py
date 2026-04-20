@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
+from junnx.net import TractableStochasticNet
 from junnx.train import TrainingModel
 from junnx.variational import GaussianVariationalDistribution
 
@@ -54,7 +55,9 @@ def elbo(
     # compute KL div
     klq_key, klp_key = jax.random.split(kl_key, 2)
     if loss_method == "fsvi-tractable":
-        mean, cov = m.net.tractable_f_mean_cov(context_x, key=klq_key)  # [O, M], [O, M, M]
+        m_net = m.net
+        assert isinstance(m_net, TractableStochasticNet)
+        mean, cov = m_net.tractable_f_mean_cov(context_x, key=klq_key)  # [O, M], [O, M, M]
         m_variational_dist = m.variational_dist
         assert isinstance(m_variational_dist, GaussianVariationalDistribution)
         q = m_variational_dist.from_mean_cov(mean, cov)  # [O,]
