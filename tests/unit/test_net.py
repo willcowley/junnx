@@ -3,7 +3,14 @@ import jax.random as jaxr
 import numpy.testing as npt
 import pytest
 
-from junnx.net import DenseStochasticNet, MCDropoutMLP, StochasticLeNet
+from junnx.layers import DenseStochasticLayer
+from junnx.net import (
+    DenseStochasticNet,
+    MCDropoutLeNet,
+    MCDropoutMLP,
+    StochasticLeNet,
+    StochasticNet,
+)
 
 
 def test_dense_stochastic_net():
@@ -52,6 +59,31 @@ def test_dense_stochastic_net():
     npt.assert_allclose(samples0, samples2)
 
 
+def test_dense_stochastic_net_is_tractable():
+    key = jaxr.PRNGKey(42)
+    key_init, key_x, key_samples = jaxr.split(key, 3)
+    net = DenseStochasticNet(
+        n_in=3,
+        n_out=2,
+        n_hidden=32,
+        depth=2,
+        use_bias=True,
+        key=key_init,
+    )
+    x = jaxr.normal(key_x, shape=(10, 3))
+    tractable_f_mean_cov_fn = eqx.filter_jit(net.tractable_f_mean_cov)
+    mean, cov = tractable_f_mean_cov_fn(x, key=key_x)
+
+    assert mean.shape == (2, 10)
+    assert cov.shape == (2, 10, 10)
+
+    # check last layer
+    last_layer = net.last_layer
+    assert isinstance(last_layer, DenseStochasticLayer)
+    assert last_layer.n_in == 32
+    assert last_layer.n_out == 2
+
+
 def test_dense_mcdropout_net():
     key = jaxr.PRNGKey(0)
     key_init, key_x, key_call0, key_call1 = jaxr.split(key, 4)
@@ -98,9 +130,15 @@ def test_dense_mcdropout_net():
     npt.assert_allclose(samples0, samples2)
 
 
-def test_stochastic_lenet():
+@pytest.mark.parametrize("model_type", ["stochastic", "mcdropout"])
+def test_lenet(model_type: str):
     key = jaxr.PRNGKey(42)
-    m = StochasticLeNet(key=key)
+    if model_type == "stochastic":
+        m: StochasticNet = StochasticLeNet(key=key)
+    elif model_type == "mcdropout":
+        m = MCDropoutLeNet(key=key)
+    else:
+        raise ValueError(f"Unknown model: {model_type}")
 
     image = jaxr.normal(key, (1, 28, 28))
 
@@ -119,3 +157,22 @@ def test_stochastic_lenet():
 
     out_samples = m.predict_f_samples(image[None], n_samples=3, key=key0)
     assert out_samples.shape == (3, 1, 10)
+
+
+def test_stochastic_lenet_is_tractable():
+    key = jaxr.PRNGKey(42)
+    key_init, key_image, key_call = jaxr.split(key, 3)
+
+    m = StochasticLeNet(key=key_init)
+    images = jaxr.uniform(key_image, (8, 1, 28, 28))
+
+    mean, cov = m.tractable_f_mean_cov(images, key=key_call)
+
+    assert mean.shape == (10, 8)
+    assert cov.shape == (10, 8, 8)
+
+    # check last layer
+    last_layer = m.last_layer
+    assert isinstance(last_layer, DenseStochasticLayer)
+    assert last_layer.n_in == 84
+    assert last_layer.n_out == 10

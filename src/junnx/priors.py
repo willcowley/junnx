@@ -5,8 +5,8 @@ import equinox as eqx
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
-from junnx.net import StochasticNet
-from junnx.variational import VariationalDistribution
+from junnx.net import StochasticNet, TractableStochasticNet
+from junnx.variational import GaussianVariationalDistribution, VariationalDistribution
 
 _JITTER = 1e-6
 _EPS = 1e-12
@@ -28,11 +28,31 @@ class SampleStochasticNetPrior(Prior):
     variational_dist: VariationalDistribution
 
     def __call__(
-        self, x: jnp.ndarray, n_samples: int, key: jnp.ndarray
+        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
     ) -> tfp.distributions.Distribution:
         # x: [N, D]
         predf = self.net.predict_f_samples(x, n_samples, key=key)  # [S, N, O]
         return self.variational_dist(predf)  # [O, N]
+
+
+class TractableStochasticNetPrior(Prior):
+
+    net: TractableStochasticNet
+
+    def __init__(self, net: TractableStochasticNet, log_var: float | None = None):
+        if log_var is not None:
+            net = eqx.tree_at(
+                lambda n: n.last_layer.w_log_var,
+                net,
+                jnp.full_like(net.last_layer.w_log_var, log_var),
+            )
+        self.net = net
+
+    def __call__(
+        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
+    ) -> tfp.distributions.Distribution:
+        mean, cov = self.net.tractable_f_mean_cov(x, key=key)
+        return GaussianVariationalDistribution().from_mean_cov(mean, cov)
 
 
 class DirichletPrior(Prior):
@@ -44,7 +64,7 @@ class DirichletPrior(Prior):
     """
 
     def __call__(
-        self, x: jnp.ndarray, n_samples: int, key: jnp.ndarray
+        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
     ) -> tfp.distributions.Dirichlet:
         # x: [N, D]
         return tfp.distributions.Dirichlet(concentration=self.concentration)

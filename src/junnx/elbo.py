@@ -2,7 +2,9 @@ import jax
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
+from junnx.net import TractableStochasticNet
 from junnx.train import TrainingModel
+from junnx.variational import GaussianVariationalDistribution
 
 
 def elbo(
@@ -15,7 +17,7 @@ def elbo(
     n_batches_per_epoch: int,
     *,
     key: jnp.ndarray,
-    loss_method: str = "fsvi",
+    loss_method: str = "fsvi-samples",
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Computes the function-space variational inference loss for a batch of data.
@@ -48,11 +50,20 @@ def elbo(
     nll_loss = -predy.log_prob(y[None]).sum(axis=-1).mean()  # [,]  per-batch NLL
     if loss_method == "nll":
         return nll_loss / batch_size, predf  # [,], [SN, N, O]
-    assert loss_method == "fsvi"
+    assert loss_method.startswith("fsvi")
     assert context_x is not None
     # compute KL div
     klq_key, klp_key = jax.random.split(kl_key, 2)
-    q = m.variational(context_x, n_samples_kl, key=klq_key)  # [O,]
+    if loss_method == "fsvi-tractable":
+        m_net = m.net
+        assert isinstance(m_net, TractableStochasticNet)
+        mean, cov = m_net.tractable_f_mean_cov(context_x, key=klq_key)  # [O, M], [O, M, M]
+        m_variational_dist = m.variational_dist
+        assert isinstance(m_variational_dist, GaussianVariationalDistribution)
+        q = m_variational_dist.from_mean_cov(mean, cov)  # [O,]
+    else:
+        assert loss_method == "fsvi-samples"
+        q = m.variational(context_x, n_samples_kl, key=klq_key)  # [O,]
     p = m.prior(context_x, n_samples_kl, key=klp_key)
     kl_div = tfp.distributions.kl_divergence(q, p)  # [O,]
 

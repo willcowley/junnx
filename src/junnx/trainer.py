@@ -139,7 +139,7 @@ class Trainer:
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
         logger: Optional[SummaryWriter] = None,
-        loss_method: str = "fsvi",
+        loss_method: str = "fsvi-samples",
     ) -> None:
         """
         Orchestrate model training.
@@ -164,7 +164,7 @@ class Trainer:
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
         self._logger = logger
-        if loss_method not in {"fsvi", "nll"}:
+        if loss_method not in {"fsvi-samples", "fsvi-tractable", "nll"}:
             raise ValueError(f"Invalid loss method: {loss_method}")
         self._loss_method = loss_method
 

@@ -52,8 +52,8 @@ model = TrainingModel(
     net=DenseStochasticNet(
         n_in=1,
         n_out=1,
-        n_hidden=32,
-        depth=2,
+        n_hidden=128,
+        depth=3,
         use_bias=True,
         key=key_m,
     ),
@@ -74,7 +74,7 @@ opt = optax.adam(1e-3)
 def _plot_model(model: TrainingModel, i: int, n_samples: int = 32) -> None:
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     ax.scatter(ds.x, ds.y, s=6, facecolor="#E15759", edgecolor="k", zorder=1)
-    xx = jnp.linspace(-6.0, 6.0, 401)[:, None]
+    xx = jnp.linspace(-10.0, 10.0, 801)[:, None]
 
     pred_f_samples = model.net.predict_f_samples(xx, n_samples, key=key)  # [S, N, O]
     pred_f_mean = jnp.mean(pred_f_samples, axis=0)  # [N, O]

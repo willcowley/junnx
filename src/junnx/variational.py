@@ -26,7 +26,12 @@ class GaussianVariationalDistribution(VariationalDistribution):
         self, pred_f_samples: jnp.ndarray
     ) -> tfp.distributions.MultivariateNormalTriL:
         mean, cov = sample_mean_cov(pred_f_samples)  # mean: [O, N], cov: [O, N, N]
+        return self.from_mean_cov(mean, cov)
 
+    def from_mean_cov(
+        self, mean: jnp.ndarray, cov: jnp.ndarray
+    ) -> tfp.distributions.MultivariateNormalTriL:
+        # mean: [O, N], cov: [O, N, N]
         _jitter = _JITTER * jnp.eye(cov.shape[-1], dtype=cov.dtype)[None, ...]  # [1, N, N]
         Lq = jnp.linalg.cholesky(cov + _jitter)  # [O, N, N]
         return tfp.distributions.MultivariateNormalTriL(loc=mean, scale_tril=Lq)
