@@ -64,7 +64,7 @@ def elbo(
     else:
         assert loss_method == "fsvi-samples"
         q = m.variational(context_x, n_samples_kl, key=klq_key)  # [O,]
-    p = m.prior(context_x, n_samples_kl, key=klp_key)
+    p = m.prior(context_x, key=klp_key)
     kl_div = tfp.distributions.kl_divergence(q, p)  # [O,]
 
     kl_loss = kl_div.mean()  # [,]

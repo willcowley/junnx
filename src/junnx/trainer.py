@@ -8,36 +8,31 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from junnx.datasets import DataLoader
-from junnx.elbo import elbo
+from junnx.loss_fns import LossFn
 from junnx.metrics import Metric
 from junnx.samplers import Sampler
 from junnx.train import TrainingModel
 
 
-def loss_fn(
+def _loss_fn(
     trainable: TrainingModel,
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
     context_x: jnp.ndarray | None,
-    n_samples_nll: int,
-    n_samples_kl: int,
+    loss_fn: LossFn,
     n_batches_per_epoch: int,
-    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     m = eqx.combine(trainable, static)
-    return elbo(
+    return loss_fn(
         m,
         x,
         y,
         context_x,
-        n_samples_nll,
-        n_samples_kl,
         n_batches_per_epoch,
         key=key,
-        loss_method=loss_method,
     )
 
 
@@ -48,12 +43,10 @@ def train_step(
     x: jnp.ndarray,
     y: jnp.ndarray,
     context_x: jnp.ndarray | None,
-    n_samples_nll: int,
-    n_samples_kl: int,
+    loss_fn: LossFn,
     n_batches_per_epoch: int,
     opt: optax.GradientTransformation,
     opt_state: optax.OptState,
-    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, TrainingModel, optax.OptState]:
@@ -68,9 +61,7 @@ def train_step(
         static: The static part(s) of the model that is not updated during training.
         x: The input data batch.
         y: The target data batch.
-        n_samples_nll: The number of model realisations to use when estimating the negative
-            log-likelihood
-        n_samples_kl: The number of model realisations to use when estimating the KL divergence
+        loss_fn: The loss function that is to be used.
         n_batches_per_epoch: The number of data batches per epoch, used to scale the KL
             divergence.
         opt: The optax optimiser to use for updating the trainable parameters.
@@ -83,16 +74,14 @@ def train_step(
         - The updated trainable part(s) of the model.
         - The updated optimiser state.
     """
-    (loss, _), grads = eqx.filter_value_and_grad(loss_fn, has_aux=True)(
+    (loss, _), grads = eqx.filter_value_and_grad(_loss_fn, has_aux=True)(
         trainable,
         static,
         x,
         y,
         context_x,
-        n_samples_nll,
-        n_samples_kl,
+        loss_fn,
         n_batches_per_epoch,
-        loss_method,
         key=key,
     )
     update, opt_state = opt.update(grads, opt_state)
@@ -107,23 +96,19 @@ def val_step(
     x: jnp.ndarray,
     y: jnp.ndarray,
     context_x: jnp.ndarray | None,
-    n_samples_nll: int,
-    n_samples_kl: int,
+    loss_fn: LossFn,
     n_batches_per_epoch: int,
-    loss_method: str,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-    return loss_fn(
+    return _loss_fn(
         trainable,
         static,
         x,
         y,
         context_x,
-        n_samples_nll,
-        n_samples_kl,
+        loss_fn,
         n_batches_per_epoch,
-        loss_method,
         key=key,
     )
 
@@ -132,30 +117,24 @@ class Trainer:
 
     def __init__(
         self,
-        n_samples_nll: int,
-        n_samples_kl: int,
         n_epochs: int,
         opt: optax.GradientTransformation,
+        loss_fn: LossFn,
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
         logger: Optional[SummaryWriter] = None,
-        loss_method: str = "fsvi-samples",
     ) -> None:
         """
         Orchestrate model training.
 
         Args:
-            n_samples_nll: Number of model realisations to use when estimating the negative
-                log-likelihood term of the ELBO.
-            n_samples_kl: Number of model realisations to use when estimating the KL divergence
-                term of the ELBO.
+            loss_fn: The loss function to use.
             n_epochs: Number of epochs to train for.
             opt: Optax optimizer to use for training.
             opt_state: Optional initial state for the optimizer. If not provided, the optimizer
                 will be initialized with the parameters of the first model passed to `train()`.
         """
-        self.n_samples_nll = n_samples_nll
-        self.n_samples_kl = n_samples_kl
+        self.loss_fn = loss_fn
         self.n_epochs = n_epochs
         self.opt = opt
         self._opt_state = opt_state
@@ -164,9 +143,6 @@ class Trainer:
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
         self._logger = logger
-        if loss_method not in {"fsvi-samples", "fsvi-tractable", "nll"}:
-            raise ValueError(f"Invalid loss method: {loss_method}")
-        self._loss_method = loss_method
 
     @property
     def best_model(self) -> TrainingModel:
@@ -222,12 +198,10 @@ class Trainer:
                     x,
                     y,
                     context_x,
-                    self.n_samples_nll,
-                    self.n_samples_kl,
+                    self.loss_fn,
                     dl.batches_per_epoch,
                     self.opt,
                     self._opt_state,
-                    self._loss_method,
                     key=key_step,
                 )
                 epoch_loss += loss
@@ -251,10 +225,8 @@ class Trainer:
                         val_x,
                         val_y,
                         val_context_x,
-                        self.n_samples_nll,
-                        self.n_samples_kl,
+                        self.loss_fn,
                         val_dl.batches_per_epoch,
-                        self._loss_method,
                         key=key_step,
                     )
                     val_ydist = eqx.combine(trainable, static).predict_ydist(val_predf)

@@ -26,6 +26,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from junnx.data import MakeMoonsDataset
 from junnx.datasets import DataLoader
 from junnx.likelihoods import CategoricalLikelihood
+from junnx.loss import SampleFSVILoss
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import UniformSampler
@@ -96,11 +97,10 @@ model = TrainingModel(
 
 dl = DataLoader(ds, batch_size=32, shuffle=True, key=key)
 sampler = UniformSampler(n_dim=2, n_samples=64, low=(-4.0, -4.0), high=(4.0, 4.0))
-
+loss_fn = SampleFSVILoss(n_samples_nll=16, n_samples_kl=64)
 opt = optax.adam(1e-3)
 trainer = Trainer(
-    n_samples_nll=16,
-    n_samples_kl=64,
+    loss_fn=loss_fn,
     n_epochs=4_000,
     opt=opt,
 )

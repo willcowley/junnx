@@ -4,6 +4,7 @@ import tensorflow_probability.substrates.jax as tfp
 
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
+from junnx.loss_fns import SampleFSVILoss
 from junnx.metrics import MSE, NLL
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
@@ -72,9 +73,10 @@ def test_regression() -> None:
 
     metrics = {"MSE": MSE, "NLL": NLL}
 
+    loss_fn = SampleFSVILoss(n_samples_nll=4, n_samples_kl=16)
+
     trainer = Trainer(
-        n_samples_nll=4,
-        n_samples_kl=16,
+        loss_fn=loss_fn,
         n_epochs=10,
         opt=opt,
         metrics=metrics,
