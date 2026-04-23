@@ -27,6 +27,7 @@ from tensorboardX import SummaryWriter
 from junnx.data import EMNISTDataset, FashionMNISTDataset, MNISTDataset
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import CategoricalLikelihood
+from junnx.loss_fns import NLLLoss, SampleFSVILoss
 from junnx.metrics import ECE, Accuracy, Brier, EntropyAUROC
 from junnx.net import MCDropoutLeNet, StochasticLeNet
 from junnx.priors import DirichletPrior
@@ -71,14 +72,18 @@ metrics = {"ACC": Accuracy, "ECE": ECE, "Brier": Brier}
 log_dir = f"/tmp/fsvi_mnist_example/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 logger = SummaryWriter(log_dir=log_dir)
 
+loss_fn = (
+    SampleFSVILoss(n_samples_nll=4, n_samples_kl=16)
+    if not mcdropout
+    else NLLLoss(n_samples_nll=4)
+)
+
 trainer = Trainer(
-    n_samples_nll=4,
-    n_samples_kl=16,
+    loss_fn=loss_fn,
     n_epochs=30,
     opt=opt,
     metrics=metrics,  # type: ignore[arg-type]
     logger=logger,
-    loss_method="fsvi" if not mcdropout else "nll",
 )
 _ = trainer.train(model, dl, sampler, val_dl, key=key)
 model = trainer.best_model

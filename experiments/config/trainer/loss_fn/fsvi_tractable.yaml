@@ -1,0 +1,2 @@
+_target_: junnx.loss_fns.TractableFSVILoss
+n_samples_nll: 8

@@ -28,6 +28,7 @@ import tensorflow_probability.substrates.jax as tfp
 
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
+from junnx.loss_fns import TractableFSVILoss
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior, TractableStochasticNetPrior
 from junnx.samplers import UniformSampler
@@ -148,9 +149,9 @@ model = TrainingModel(
 opt = optax.adam(1e-3)
 sampler = UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,))
 
-trainer1 = Trainer(
-    n_samples_nll=16, n_samples_kl=64, n_epochs=2_000, opt=opt, loss_method="fsvi-tractable"
-)
+loss_fn = TractableFSVILoss(n_samples_nll=16)
+
+trainer1 = Trainer(loss_fn=loss_fn, n_epochs=2_000, opt=opt)
 _ = trainer1.train(model, dl1, sampler, key=key)
 m = trainer1.best_model
 _plot_model(m, ds1, 1999, 1_024)
@@ -164,12 +165,10 @@ static = eqx.tree_at(lambda _m: _m.prior, static, prior_net)
 m = eqx.combine(trainable, static)
 
 trainer2 = Trainer(
-    n_samples_nll=16,
-    n_samples_kl=64,
+    loss_fn=loss_fn,
     n_epochs=4_000,
     opt=opt,
     opt_state=trainer1.best_opt_state,
-    loss_method="fsvi-tractable",
 )
 
 _, key = jax.random.split(key)

@@ -17,7 +17,7 @@ class Prior(eqx.Module):
 
     @abc.abstractmethod
     def __call__(
-        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
+        self, x: jnp.ndarray, *, key: jnp.ndarray
     ) -> tfp.distributions.Distribution: ...
 
 
@@ -26,12 +26,11 @@ class SampleStochasticNetPrior(Prior):
 
     net: StochasticNet
     variational_dist: VariationalDistribution
+    n_samples: int = eqx.field(static=True)
 
-    def __call__(
-        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
-    ) -> tfp.distributions.Distribution:
+    def __call__(self, x: jnp.ndarray, *, key: jnp.ndarray) -> tfp.distributions.Distribution:
         # x: [N, D]
-        predf = self.net.predict_f_samples(x, n_samples, key=key)  # [S, N, O]
+        predf = self.net.predict_f_samples(x, self.n_samples, key=key)  # [S, N, O]
         return self.variational_dist(predf)  # [O, N]
 
 
@@ -48,9 +47,7 @@ class TractableStochasticNetPrior(Prior):
             )
         self.net = net
 
-    def __call__(
-        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
-    ) -> tfp.distributions.Distribution:
+    def __call__(self, x: jnp.ndarray, *, key: jnp.ndarray) -> tfp.distributions.Distribution:
         mean, cov = self.net.tractable_f_mean_cov(x, key=key)
         return GaussianVariationalDistribution().from_mean_cov(mean, cov)
 
@@ -63,9 +60,7 @@ class DirichletPrior(Prior):
     The concentration parameters of the Dirichlet distribution. Must be strictly positive.
     """
 
-    def __call__(
-        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
-    ) -> tfp.distributions.Dirichlet:
+    def __call__(self, x: jnp.ndarray, *, key: jnp.ndarray) -> tfp.distributions.Dirichlet:
         # x: [N, D]
         return tfp.distributions.Dirichlet(concentration=self.concentration)
 
@@ -101,9 +96,7 @@ class IsotropicStationaryKernelPrior(Prior):
     @abc.abstractmethod
     def kernel(self, x: jnp.ndarray) -> jnp.ndarray: ...
 
-    def __call__(
-        self, x: jnp.ndarray, n_samples: int, *, key: jnp.ndarray
-    ) -> tfp.distributions.Distribution:
+    def __call__(self, x: jnp.ndarray, *, key: jnp.ndarray) -> tfp.distributions.Distribution:
         # x: [N, D]
         N, *_ = x.shape
         cov = self.kernel(x)  # [N, N]

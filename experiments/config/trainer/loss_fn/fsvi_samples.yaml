@@ -1,0 +1,3 @@
+_target_: junnx.loss_fns.SampleFSVILoss
+n_samples_nll: 8
+n_samples_kl: 32

@@ -26,6 +26,7 @@ import tensorflow_probability.substrates.jax as tfp
 from junnx.data import SnelsonDataset
 from junnx.datasets import DataLoader
 from junnx.likelihoods import GaussianLikelihood
+from junnx.loss_fns import SampleFSVILoss
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
 from junnx.samplers import UniformSampler
@@ -101,9 +102,10 @@ def _plot_model(model: TrainingModel, i: int, n_samples: int = 32) -> None:
     # plt.close(fig)
 
 
+loss_fn = SampleFSVILoss(n_samples_nll=16, n_samples_kl=64)
+
 trainer = Trainer(
-    n_samples_nll=16,
-    n_samples_kl=64,
+    loss_fn=loss_fn,
     n_epochs=4_000,
     opt=opt,
 )

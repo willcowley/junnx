@@ -19,7 +19,7 @@ def test_dirichlet_prior(nd: int) -> None:
     key_x, key_call = jaxr.split(key, 2)
     x = jaxr.normal(key_x, shape=(16, nd))  # [N, O]
 
-    dist = prior(x, 5, key=key_call)
+    dist = prior(x, key=key_call)
 
     assert isinstance(dist, tfp.distributions.Distribution)
     assert dist.concentration.shape == x.shape[-1:]
@@ -33,12 +33,12 @@ def test_tractable_prior() -> None:
     prior = TractableStochasticNetPrior(net)
 
     x = jax.random.normal(key, shape=(16, 1))
-    n_samples_dummy = 32  # not used
-    dist = prior(x, n_samples_dummy, key=key_call)
+    dist = prior(x, key=key_call)
     assert isinstance(dist, tfp.distributions.MultivariateNormalTriL)
 
     assert dist.loc.shape == (1, 16)
     assert dist.scale_tril.shape == (1, 16, 16)
+
 
 def test_tractable_prior_updates_logvar() -> None:
     key = jax.random.PRNGKey(0)
@@ -49,6 +49,7 @@ def test_tractable_prior_updates_logvar() -> None:
     npt.assert_allclose(prior.net.last_layer.w_log_var, 0.0)
     with pytest.raises(AssertionError):
         npt.assert_allclose(prior.net.last_layer.w_log_var, net.last_layer.w_log_var)
+
 
 def test_tractable_prior_net_is_frozen() -> None:
     key = jax.random.PRNGKey(0)
