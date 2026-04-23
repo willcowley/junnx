@@ -1,0 +1,12 @@
+defaults:
+  - ray
+
+ray:
+  init:
+    num_gpus: 1
+    runtime_env:
+      JAX_ENABLE_X64: 1
+      XLA_PYTHON_CLIENT_MEM_FRACTION: 0.45
+  remote:
+    num_gpus: 0.5
+

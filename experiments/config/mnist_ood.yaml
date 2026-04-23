@@ -36,8 +36,6 @@ defaults:
   - _self_
 
 trainer:
-  n_samples_nll: 4
-  n_samples_kl: 16
   n_epochs: 30
 
 sampler:
