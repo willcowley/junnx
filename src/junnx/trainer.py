@@ -10,8 +10,8 @@ from tqdm import tqdm
 from junnx.datasets import DataLoader
 from junnx.loss_fns import LossFn
 from junnx.metrics import Metric
+from junnx.model import TrainingModel
 from junnx.samplers import Sampler
-from junnx.train import TrainingModel
 
 
 def _loss_fn(
