@@ -8,7 +8,7 @@ import pytest
 import sklearn.metrics
 import tensorflow_probability.substrates.jax as tfp
 
-from junnx.metrics import ECE, MSE, NLL, RMSE, Accuracy, Brier, Metric, _Average
+from junnx.metrics import AUROC, ECE, MSE, NLL, RMSE, Accuracy, Brier, Metric, _Average
 
 
 def test_ece() -> None:
@@ -134,7 +134,7 @@ def test_nll_raises() -> None:
         (Brier, sklearn.metrics.brier_score_loss),
     ],
 )
-def test_classification_compute(
+def test_classification_multiclass_compute(
     metric_cls: type[Metric], impl: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]
 ) -> None:
     key = jaxr.PRNGKey(0)
@@ -158,3 +158,29 @@ def test_classification_compute(
         metric_cls, preds.reshape(5, 20, 3), trues.reshape(5, 20)
     )
     npt.assert_allclose(result_from_batches, expected, atol=1e-6, rtol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "metric_cls, impl",
+    [
+        (AUROC, sklearn.metrics.roc_auc_score),
+    ],
+)
+def test_classification_binary_compute(
+    metric_cls: type[Metric], impl: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]
+) -> None:
+    key = jaxr.PRNGKey(0)
+    key_pred, key_true = jaxr.split(key, 2)
+
+    preds = jaxr.uniform(key_pred, shape=(100,))
+    trues = jaxr.randint(key_true, shape=(100,), minval=0, maxval=2)
+
+    metric = metric_cls.from_samples(preds, trues)
+    result = metric.compute()
+
+    expected = impl(trues, preds)
+
+    npt.assert_allclose(result, expected, atol=1e-3, rtol=1e-3)
+
+    result_from_batches = _from_batches(metric_cls, preds.reshape(5, 20), trues.reshape(5, 20))
+    npt.assert_allclose(result_from_batches, expected, atol=1e-3, rtol=1e-3)
