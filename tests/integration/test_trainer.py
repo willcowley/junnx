@@ -56,7 +56,7 @@ def test_trainer_train(dummy_dls: tuple[DataLoader, DataLoader, DataLoader]) -> 
 
         m = trainer.train(model, dl, sampler=sampler, val_dl=val_dl, key=key_train)
 
-        logger.close()
+        trainer.logger.close()
         events = EventAccumulator(tmpdir + "/logs")
         events.Reload()
 
