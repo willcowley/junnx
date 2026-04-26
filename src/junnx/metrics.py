@@ -152,7 +152,7 @@ class Brier(_ClassificationAverage):
         )
 
 
-class _AUROC(Metric):
+class AUROC(Metric):
 
     tp: jnp.ndarray
     tn: jnp.ndarray
@@ -162,7 +162,7 @@ class _AUROC(Metric):
     max_threshold: float = eqx.field(static=True)
 
     @classmethod
-    def empty(cls, n_thresholds: int = 200, max_threshold: float = 1.0) -> "_AUROC":
+    def empty(cls, n_thresholds: int = 200, max_threshold: float = 1.0) -> "AUROC":
         return cls(
             tp=jnp.zeros(n_thresholds),
             tn=jnp.zeros(n_thresholds),
@@ -179,7 +179,7 @@ class _AUROC(Metric):
         labels: jnp.ndarray,
         n_thresholds: int = 200,
         max_threshold: float = 1.0,
-    ) -> "_AUROC":
+    ) -> "AUROC":
         # predictions: [N,]
         # labels: [N,]
         thresholds = jnp.linspace(0, max_threshold, n_thresholds)  # [T,]
@@ -203,7 +203,7 @@ class _AUROC(Metric):
             max_threshold=max_threshold,
         )
 
-    def merge(self, other: "_AUROC") -> "_AUROC":
+    def merge(self, other: "AUROC") -> "AUROC":
         assert self.n_thresholds == other.n_thresholds
 
         tp = self.tp + other.tp
@@ -225,7 +225,7 @@ class _AUROC(Metric):
         return -jnp.trapezoid(tp_rate, x=fp_rate)
 
 
-class EntropyAUROC(_AUROC):
+class EntropyAUROC(AUROC):
 
     @classmethod
     def from_ydist(
