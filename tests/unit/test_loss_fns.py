@@ -6,9 +6,9 @@ import tensorflow_probability.substrates.jax as tfp
 
 from junnx.likelihoods import GaussianLikelihood
 from junnx.loss_fns import LossFn, NLLLoss, SampleFSVILoss, TractableFSVILoss
+from junnx.model import TrainingModel
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
-from junnx.train import TrainingModel
 from junnx.variational import GaussianVariationalDistribution
 
 

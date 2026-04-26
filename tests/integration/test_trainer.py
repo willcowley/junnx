@@ -13,10 +13,10 @@ from junnx.datasets import DataLoader
 from junnx.likelihoods import GaussianLikelihood
 from junnx.loss_fns import TractableFSVILoss
 from junnx.metrics import MSE, RMSE
+from junnx.model import TrainingModel
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior
 from junnx.samplers import UniformSampler
-from junnx.train import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import GaussianVariationalDistribution
 

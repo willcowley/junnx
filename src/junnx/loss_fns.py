@@ -5,8 +5,8 @@ import jax
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
 
+from junnx.model import TrainingModel
 from junnx.net import TractableStochasticNet
-from junnx.train import TrainingModel
 from junnx.variational import GaussianVariationalDistribution
 
 
