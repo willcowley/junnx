@@ -113,6 +113,20 @@ def test_nll_compute() -> None:
     npt.assert_allclose(result, expected)
 
 
+def test_nll_raises() -> None:
+    key = jaxr.PRNGKey(0)
+    key_pred, key_true = jaxr.split(key, 2)
+
+    preds_mean = jaxr.normal(key_pred, shape=(100, 1))
+    pred_std = jnp.ones(shape=(1,))
+    ydist = tfp.distributions.MultivariateNormalDiag(loc=preds_mean, scale_diag=pred_std)
+    preds = ydist.sample(seed=key_pred)
+    trues = ydist.sample(seed=key_true)
+
+    with pytest.raises(NotImplementedError):
+        NLL.from_samples(preds, trues)
+
+
 @pytest.mark.parametrize(
     "metric_cls, impl",
     [
