@@ -32,7 +32,7 @@ from junnx.metrics import ECE, Accuracy, Brier, EntropyAUROC
 from junnx.net import MCDropoutLeNet, StochasticLeNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import DataSampler
-from junnx.train import TrainingModel
+from junnx.model import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import DirichletVariationalDistribution
 

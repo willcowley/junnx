@@ -38,8 +38,8 @@ def dummy_dls(dummy_datasets) -> tuple[DataLoader, DataLoader, DataLoader]:
         DataLoader(
             ds,
             batch_size=16,
-            shuffle=True if split == "train" else False,
+            shuffle=True if i == 0 else False, # only shuffle train set
             key=jax.random.PRNGKey(0),
         )
-        for ds, split in zip(dummy_datasets, ("train", "test", "split"))
+        for i, ds in enumerate(dummy_datasets)
     )

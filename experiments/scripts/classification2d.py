@@ -15,7 +15,7 @@ from junnx.likelihoods import CategoricalLikelihood, Likelihood
 from junnx.net import StochasticNet
 from junnx.priors import Prior
 from junnx.samplers import Sampler
-from junnx.train import TrainingModel
+from junnx.model import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import VariationalDistribution
 

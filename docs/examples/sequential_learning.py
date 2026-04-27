@@ -32,7 +32,7 @@ from junnx.loss_fns import TractableFSVILoss
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior, TractableStochasticNetPrior
 from junnx.samplers import UniformSampler
-from junnx.train import TrainingModel
+from junnx.model import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import GaussianVariationalDistribution
 

@@ -30,7 +30,7 @@ from junnx.loss import SampleFSVILoss
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import UniformSampler
-from junnx.train import TrainingModel
+from junnx.model import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import DirichletVariationalDistribution
 

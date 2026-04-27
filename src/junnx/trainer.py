@@ -243,7 +243,7 @@ class Trainer:
                         self._logger.add_scalar(f"metric/val_{k}", result.item(), pbar.n)
                 pbar.set_postfix(
                     {
-                        "val_loss": val_loss.item(),
+                        "val_loss": val_epoch_loss.item(),
                         **{f"val_{k}": m.item() for k, m in val_metric_results.items()},
                     }
                 )
