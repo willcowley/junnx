@@ -25,3 +25,8 @@ Uncertainty Neural Networks in [JAX](https://github.com/jax-ml/jax).
 
 ### OOD Detection
 MNIST/FashionMNIST:
+
+| Method     | Accuracy ↑  | ECE ↓      | AUROC (FM) ↑ |
+|------------|-------------|------------|--------------|
+| FSVI       | 98.53±0.041 | 0.01±0.001 | 96.09±1.107  |
+| MC Dropout | 98.33±0.090 | 0.01±0.001 | 85.53±4.066  |
