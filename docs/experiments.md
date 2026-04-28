@@ -25,3 +25,6 @@ trainer/loss_fn=nll net=mcdropout_mlp
 ```bash
 JAX_ENABLE_X64=1 poetry run python experiments/scripts/mnist_ood.py -m net.key.seed=0,1,2,3,4,5,6,7,8,9
 ```
+|Method| Accuracy ↑| ECE ↓| AUROC (FM) ↑|
+|---|---|---|---|
+| FSVI |98.53±0.041 | 0.01±0.001 |96.09±1.107 |
