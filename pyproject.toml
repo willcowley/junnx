@@ -46,7 +46,8 @@ dev = [
     "taskipy (>=1.14.1,<2.0.0)"
 ]
 cuda = [
-    "jax[cuda12] (>=0.5,<0.6)"
+    "jax[cuda12] (>=0.5,<0.6)",
+    "nvidia-cusolver-cu12 (<11.7)"
 ]
 data = [
     "scikit-learn (<1.8)",
