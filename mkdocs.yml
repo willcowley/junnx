@@ -28,6 +28,9 @@ theme:
   # from https://pictogrammers.com/library/mdi/icon/chart-bell-curve/
   favicon: "assets/chart-bell-curve.svg"
 
+extra_css:
+  - assets/styles.css
+
 nav:
   - 'index.md'
   - 'experiments.md'
