@@ -10,7 +10,7 @@ _EPS = 1e-12
 
 
 class Dataset:
-    """Abstract dataset. Follows the PyTorch Dataset inteface."""
+    """Abstract dataset. Follows the PyTorch Dataset interface."""
 
     def __len__(self) -> int:
         raise NotImplementedError
