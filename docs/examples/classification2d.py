@@ -27,10 +27,10 @@ from junnx.data import MakeMoonsDataset
 from junnx.datasets import DataLoader
 from junnx.likelihoods import CategoricalLikelihood
 from junnx.loss import SampleFSVILoss
+from junnx.model import TrainingModel
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import UniformSampler
-from junnx.model import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import DirichletVariationalDistribution
 

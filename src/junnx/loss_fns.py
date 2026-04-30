@@ -1,3 +1,7 @@
+"""
+Loss functions for performing approximate Bayesian inference.
+"""
+
 import abc
 
 import equinox as eqx
@@ -11,6 +15,7 @@ from junnx.variational import GaussianVariationalDistribution
 
 
 class LossFn(eqx.Module):
+    """Abstract base class for loss funnctions."""
 
     @abc.abstractmethod
     def __call__(
@@ -22,12 +27,31 @@ class LossFn(eqx.Module):
         n_batches_per_epoch: int,
         *,
         key: jnp.ndarray,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]: ...
+    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Evaluates a scalar loss at `x`
+
+        Args:
+            m: The model
+            x: The input data
+            y: The target data
+            context_x: Context input data used to evaluate the KL divergernce term
+            n_batches_per_epoch: The number of training data batches per epoch
+            key: A psuedo-random key for the loss evaluation
+
+        Returns:
+            - The scalar loss value
+            - Sampled function values from model `m` at points `x`
+        """
 
 
 class NLLLoss(LossFn):
+    """
+    A loss that computes the negative log likelihood
+    """
 
     n_samples_nll: int = eqx.field(static=True)
+    """The number of samples to use to evaluate the negative log likelihood."""
 
     def __call__(
         self,
@@ -50,8 +74,13 @@ class NLLLoss(LossFn):
 
 
 class SampleFSVILoss(NLLLoss):
+    """
+    A Loss that performs functions-space variational inference (FSVI) using an MC sample approach to the KL
+    divergence term.
+    """
 
     n_samples_kl: int = eqx.field(static=True)
+    """The  number of samples to use to approximate the KL divergence term."""
 
     def __call__(
         self,
@@ -82,6 +111,10 @@ class SampleFSVILoss(NLLLoss):
 
 
 class TractableFSVILoss(NLLLoss):
+    """
+    A Loss that performs functions-space variational inference (FSVI) using the tractable approximation of Rudner et al.
+    to compute the KL divergence term.
+    """
 
     def __call__(
         self,

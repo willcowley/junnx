@@ -11,7 +11,8 @@
 Uncertainty Neural Networks in [JAX](https://github.com/jax-ml/jax).
 
 JUNNX is a simple, lightweight and modular repository for exploring approximate Bayesian
-inference with neural networks.
+inference with neural networks. Built on top of [JAX](https://github.com/jax-ml/jax) and
+[Equinox](https://docs.kidger.site/equinox/).
 
 ## Installation
 JUNNX uses [poetry](https://python-poetry.org/) to manage its dependencies. Installation
@@ -34,14 +35,5 @@ poetry install
 ![junnx_sequential_learning_1999.svg](docs/assets/junnx_sequential_learning_1999.svg)
 - Task 2:
 ![junnx_sequential_learning_5999.svg](docs/assets/junnx_sequential_learning_5999.svg)
-
-### OOD Detection
-MNIST/FashionMNIST:
-
-| Method     | Accuracy (M) ↑ | ECE (M) ↓ | AUROC (FM) ↑    |
-|------------|----------------|-----------|-----------------|
-| FSVI       | 98.53±0.041    | 0.01±0.001 | **96.09±1.107** |
-| MC Dropout | 98.33±0.090    | 0.01±0.001 | 85.53±4.066     |
-
 
 For more details see the `experiments` and `examples` section in the docs!

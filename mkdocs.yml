@@ -3,7 +3,10 @@ site_name: junnx
 plugins:
   - mkdocstrings
   - mkdocs-jupyter:
-      execute: false
+      execute: true
+      execute_ignore:
+        - 'examples/mnist.py'
+        - 'examples/classification2d.py'
 
 theme:
   name: material
@@ -30,7 +33,6 @@ nav:
   - 'experiments.md'
   - Examples:
     - 'examples/regression1d.py'
-    - 'examples/classification2d.py'
     - 'examples/sequential_learning.py'
   - API:
     - 'api/datasets.md'
@@ -43,5 +45,4 @@ nav:
     - 'api/priors.md'
     - 'api/samplers.md'
     - 'api/trainer.md'
-    - 'api/utils.md'
     - 'api/variational.md'

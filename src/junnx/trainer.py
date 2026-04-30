@@ -133,6 +133,8 @@ class Trainer:
             opt: Optax optimizer to use for training.
             opt_state: Optional initial state for the optimizer. If not provided, the optimizer
                 will be initialized with the parameters of the first model passed to `train()`.
+            metrics: The metrics to use. Are calculated on the validation step. Defaults to `None`.
+            logger: Tensorboard logger to use. Defaults to `None`.
         """
         self.loss_fn = loss_fn
         self.n_epochs = n_epochs
