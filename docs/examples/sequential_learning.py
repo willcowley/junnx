@@ -171,6 +171,8 @@ loss_fn = TractableFSVILoss(n_samples_nll=16)
 # Task 1
 trainer1 = Trainer(loss_fn=loss_fn, n_epochs=2_000, opt=opt)
 _ = trainer1.train(model, dl1, sampler, key=key)
+
+# %%
 m = trainer1.best_model
 _plot_model(m, ds1, 1999, 1_024)
 
