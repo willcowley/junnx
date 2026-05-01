@@ -15,6 +15,8 @@
 # %% [markdown]
 # # Sequential Learning with Stochastic Neural Networks
 
+# In this example we explore how to use JUNNX for sequential/continual learning.
+
 # %%
 
 from typing import Optional, Sequence
@@ -29,28 +31,30 @@ import tensorflow_probability.substrates.jax as tfp
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import GaussianLikelihood
 from junnx.loss_fns import TractableFSVILoss
+from junnx.model import TrainingModel
 from junnx.net import DenseStochasticNet
 from junnx.priors import Matern52Prior, TractableStochasticNetPrior
 from junnx.samplers import UniformSampler
-from junnx.train import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import GaussianVariationalDistribution
 
+# %% [markdown]
+
+# First, let's create some toy data and divide it into separate learning tasks.
+
+
 # %%
-
-
 def _f(x: jnp.ndarray) -> jnp.ndarray:
     return jnp.sqrt(x) * jnp.sin(2 * jnp.pi * x)
 
 
-# %%
-# Task 1
 n_task = 32
 key = jax.random.PRNGKey(20260215)
 noise_std = 0.1
 
-key1, key2, key3 = jax.random.split(key, 3)
+key1, key2 = jax.random.split(key, 2)
 
+# Task 1
 x1 = jax.random.uniform(key1, (n_task, 1)) * 0.4 + 0.05
 y1 = _f(x1)
 key1, _ = jax.random.split(key1)
@@ -58,6 +62,7 @@ e1 = jax.random.normal(key1, y1.shape) * noise_std
 y1 += e1
 x1 -= 0.75
 
+# Task 2
 x2 = jax.random.uniform(key2, (n_task, 1)) * 0.4 + 0.05 + 1.0
 y2 = _f(x2)
 key2, _ = jax.random.split(key2)
@@ -65,19 +70,11 @@ e2 = jax.random.normal(key2, y2.shape) * noise_std
 y2 += e2
 x2 -= 0.75
 
-x3 = jax.random.uniform(key3, (n_task, 1)) * 0.4 + 0.05 + 0.5
-y3 = _f(x3)
-key3, _ = jax.random.split(key3)
-e3 = jax.random.normal(key3, y3.shape) * noise_std
-y3 += e3
-x3 -= 0.75
-
+# %%
 fig, ax = plt.subplots(1, 1, figsize=(10, 6))
 ax.scatter(x1, y1, s=6, facecolor="#E15759", edgecolor="k", zorder=1, label="Task 1")
 ax.scatter(x2, y2, s=6, facecolor="#4E79A7", edgecolor="k", zorder=1, label="Task 2")
-ax.scatter(x3, y3, s=6, facecolor="#59A14F", edgecolor="k", zorder=1, label="Task 3")
 ax.legend()
-fig.savefig("/tmp/sequential_learning.png", dpi=300)
 
 # %%
 
@@ -89,6 +86,8 @@ batch_size = 16
 dl1 = DataLoader(ds1, batch_size=batch_size, shuffle=True, key=key_dl)
 dl2 = DataLoader(ds2, batch_size=batch_size, shuffle=True, key=key_dl)
 
+# %%
+
 
 def _plot_model(
     model: TrainingModel,
@@ -97,6 +96,7 @@ def _plot_model(
     n_samples: int = 32,
     dss: Optional[Sequence[TensorDataset]] = None,
 ) -> None:
+    # helper for model visualisation
     fig, ax = plt.subplots(1, 1, figsize=(8, 4))
     ax.scatter(ds.x, ds.y, s=6, facecolor="#E15759", edgecolor="k", zorder=1)
     for _ds in dss or []:
@@ -112,21 +112,28 @@ def _plot_model(
     ax.plot(xx, pred_f_mean, c="k", lw=0.8)
     ax.fill_between(
         xx[:, 0],
-        pred_f_mean[:, 0] + 1.95 * pred_f_std[:, 0],
+        pred_f_mean[:, 0] + 1.95 * pred_f_std[:, 0],  # epistemic uncertainty
         pred_f_mean[:, 0] - 1.95 * pred_f_std[:, 0],
         color="#4E79A7",
         alpha=0.5,
         lw=0.0,
     )
     ax.plot(xx, ymean, c="#59A14F", lw=0.8, ls="--")
-    ax.plot(xx, ymean + 1.95 * ystd, c="#59A14F", lw=0.66, ls="--")
+    ax.plot(
+        xx, ymean + 1.95 * ystd, c="#59A14F", lw=0.66, ls="--"
+    )  # epistemic + aleatoric uncertainty
     ax.plot(xx, ymean - 1.95 * ystd, c="#59A14F", lw=0.66, ls="--")
     for ii in range(4):
-        ax.plot(xx, pred_f_samples[ii, :, 0], c="#4E79A7", lw=0.66, alpha=0.66)
+        ax.plot(xx, pred_f_samples[ii, :, 0], c="#4E79A7", lw=0.66, alpha=0.66)  # samples
     ax.set_ylim(-2.8, 2.8)
-    fig.savefig(f"/tmp/junnx_seq_learning_{i:04d}.svg", dpi=400)
-    # plt.close(fig)
 
+
+# %% [markdown]
+
+# We'll construct a JUNNX training model to learn our tasks. See the 1D Regression example for more details about each
+# component.
+
+# %%
 
 key_m = jax.random.PRNGKey(0)
 model = TrainingModel(
@@ -149,20 +156,47 @@ model = TrainingModel(
 opt = optax.adam(1e-3)
 sampler = UniformSampler(n_dim=1, n_samples=32, low=(-1.0,), high=(1.0,))
 
+# %% [markdown]
+
+# Unlike the 1D Regression example we'll use a function-space variational inference (FSVI) loss that utilises the
+# tractable approximation of Rudner et al. This is much faster than the sample-based FSVI loss as it avoids sampling by
+# using a local linear approximation for the last layer. This means only a single forward pass of the network is
+# required.
+
+# %%
+
 loss_fn = TractableFSVILoss(n_samples_nll=16)
 
+# %%
+# Task 1
 trainer1 = Trainer(loss_fn=loss_fn, n_epochs=2_000, opt=opt)
 _ = trainer1.train(model, dl1, sampler, key=key)
+
+# %%
 m = trainer1.best_model
 _plot_model(m, ds1, 1999, 1_024)
 
-trainable, static = m.partition()
+# %% [markdown]
 
+# Now we replace the original model prior with the posterior that we've learned from Task 1. Note how we place the `net`
+# of the model into a `TractableStochasticNetPrior` and then replace the previous prior with this new object. We use
+# some [Equinox](https://docs.kidger.site/equinox/) pytree [manipulation](https://docs.kidger.site/equinox/api/manipulation/)
+# to facilitate this.
+
+# %%
+trainable, static = m.partition()
 m_net = m.net
 assert isinstance(m_net, DenseStochasticNet)
 prior_net = TractableStochasticNetPrior(net=m_net)
 static = eqx.tree_at(lambda _m: _m.prior, static, prior_net)
 m = eqx.combine(trainable, static)
+
+# %% [markdown]
+
+# Now we continue training the model on Task 2. Note how data from Task 1 is not seen again. However, the model has
+# "remembered" this data as it is now encoded in the prior.
+
+# %%
 
 trainer2 = Trainer(
     loss_fn=loss_fn,
@@ -173,5 +207,7 @@ trainer2 = Trainer(
 
 _, key = jax.random.split(key)
 _ = trainer2.train(m, dl2, sampler, key=key)
+
+# %%
 best_model = trainer2.best_model
 _plot_model(best_model, ds2, 5999, 1_024, dss=(ds1,))

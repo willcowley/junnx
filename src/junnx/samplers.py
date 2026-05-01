@@ -57,7 +57,7 @@ class DataSampler(Sampler):
     Samples randomly from a dataset.
 
     Args:
-        n_samples: The number of samples to draw from the hypercube on each call.
+        n_samples: The number of samples to draw from the dataset on each call.
     """
 
     n_samples: int

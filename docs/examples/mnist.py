@@ -29,10 +29,10 @@ from junnx.datasets import DataLoader, TensorDataset
 from junnx.likelihoods import CategoricalLikelihood
 from junnx.loss_fns import NLLLoss, SampleFSVILoss
 from junnx.metrics import ECE, Accuracy, Brier, EntropyAUROC
+from junnx.model import TrainingModel
 from junnx.net import MCDropoutLeNet, StochasticLeNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import DataSampler
-from junnx.train import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import DirichletVariationalDistribution
 

@@ -21,6 +21,7 @@ def _safe_divide(x: jnp.ndarray, y: jnp.ndarray) -> jnp.ndarray:
 
 
 class Metric(eqx.Module):
+    """Base class for a `Metric`."""
 
     @classmethod
     @abc.abstractmethod
@@ -63,6 +64,7 @@ class _Average(Metric):
 
 
 class MSE(_Average):
+    """Mean Squared Error (MSE) metric."""
 
     @classmethod
     def from_samples(cls, predictions: jnp.ndarray, labels: jnp.ndarray) -> "MSE":
@@ -72,12 +74,14 @@ class MSE(_Average):
 
 
 class RMSE(MSE):
+    """Root Mean Squared Error (RMSE) metric."""
 
     def compute(self) -> jnp.ndarray:
         return jnp.sqrt(super().compute())
 
 
 class NLL(_Average):
+    """Negative Log Likelihood (NLL) metric."""
 
     @classmethod
     def from_samples(cls, predictions: jnp.ndarray, labels: jnp.ndarray) -> "NLL":
@@ -102,6 +106,7 @@ class _ClassificationAverage(_Average):
 
 
 class Accuracy(_ClassificationAverage):
+    """Accuracy classification metric."""
 
     @classmethod
     def from_samples(cls, predictions: jnp.ndarray, labels: jnp.ndarray) -> "Accuracy":
@@ -112,8 +117,10 @@ class Accuracy(_ClassificationAverage):
 
 
 class ECE(_ClassificationAverage):
+    """The expected calibration error (ECE) classification metric."""
 
     nbins: int = eqx.field(static=True)
+    """The number of confidence bins to use."""
 
     @classmethod
     def from_samples(
@@ -141,6 +148,7 @@ class ECE(_ClassificationAverage):
 
 
 class Brier(_ClassificationAverage):
+    """The Brier classification metric."""
 
     @classmethod
     def from_samples(cls, predictions: jnp.ndarray, labels: jnp.ndarray) -> "Brier":
@@ -153,6 +161,7 @@ class Brier(_ClassificationAverage):
 
 
 class AUROC(Metric):
+    """Area under Receiver Operating Curve (AUROC) metric."""
 
     tp: jnp.ndarray
     tn: jnp.ndarray
@@ -226,6 +235,7 @@ class AUROC(Metric):
 
 
 class EntropyAUROC(AUROC):
+    """AUROC metric that uses the entropy across multi-class predictions as a binary classifier."""
 
     @classmethod
     def from_ydist(

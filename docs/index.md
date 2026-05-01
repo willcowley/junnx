@@ -25,9 +25,9 @@ functions and thus allows the model to express epistemic uncertainty.
 
 ## Examples
 ### Regression 1D
-![image](assets/junnx_regression1d_3999.svg)
+![regression1d_sample_fsvi_1999.svg](assets/regression1d_sample_fsvi_1999.svg)
 ### Classification 2D
-![image](assets/junnx_classification2d_1999.svg)
+![classification2d_samples_fsvi_3999.svg](assets/classification2d_samples_fsvi_3999.svg)
 ### Sequential Learning
 ![image](assets/junnx_sequential_learning_1999.svg)
 ![image](assets/junnx_sequential_learning_5999.svg)

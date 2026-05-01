@@ -79,7 +79,7 @@ class IsotropicStationaryKernelPrior(Prior):
     lengthscales: jnp.ndarray  # [D,]
     """The kernel lengthscales for each input dimension."""
     variance: jnp.ndarray  # [,]
-    """THe kernel variance. Defaults to 1.0."""
+    """The kernel variance. Defaults to 1.0."""
 
     def __init__(self, lengthscales: Sequence[float], variance: float = 1.0) -> None:
         self.variance = jnp.asarray(variance)

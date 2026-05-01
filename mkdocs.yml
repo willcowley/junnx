@@ -3,7 +3,10 @@ site_name: junnx
 plugins:
   - mkdocstrings
   - mkdocs-jupyter:
-      execute: false
+      execute: true
+      execute_ignore:
+        - 'examples/mnist.py'
+        - 'examples/classification2d.py'
 
 theme:
   name: material
@@ -25,21 +28,24 @@ theme:
   # from https://pictogrammers.com/library/mdi/icon/chart-bell-curve/
   favicon: "assets/chart-bell-curve.svg"
 
+extra_css:
+  - assets/styles.css
+
 nav:
   - 'index.md'
-  - API:
-      - 'api/datasets.md'
-      - 'api/elbo.md'
-      - 'api/layers.md'
-      - 'api/likelihoods.md'
-      - 'api/net.md'
-      - 'api/priors.md'
-      - 'api/samplers.md'
-      - 'api/train.md'
-      - 'api/trainer.md'
-      - 'api/utils.md'
-      - 'api/variational.md'
+  - 'experiments.md'
   - Examples:
-      - 'examples/regression1d.py'
-      - 'examples/classification2d.py'
-      - 'examples/sequential_learning.py'
+    - 'examples/regression1d.py'
+    - 'examples/sequential_learning.py'
+  - API:
+    - 'api/datasets.md'
+    - 'api/layers.md'
+    - 'api/likelihoods.md'
+    - 'api/loss_fns.md'
+    - 'api/metrics.md'
+    - 'api/model.md'
+    - 'api/net.md'
+    - 'api/priors.md'
+    - 'api/samplers.md'
+    - 'api/trainer.md'
+    - 'api/variational.md'

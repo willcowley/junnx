@@ -26,11 +26,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from junnx.data import MakeMoonsDataset
 from junnx.datasets import DataLoader
 from junnx.likelihoods import CategoricalLikelihood
-from junnx.loss import SampleFSVILoss
+from junnx.loss_fns import SampleFSVILoss
+from junnx.model import TrainingModel
 from junnx.net import DenseStochasticNet
 from junnx.priors import DirichletPrior
 from junnx.samplers import UniformSampler
-from junnx.train import TrainingModel
 from junnx.trainer import Trainer
 from junnx.variational import DirichletVariationalDistribution
 

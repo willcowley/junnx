@@ -133,6 +133,8 @@ class Trainer:
             opt: Optax optimizer to use for training.
             opt_state: Optional initial state for the optimizer. If not provided, the optimizer
                 will be initialized with the parameters of the first model passed to `train()`.
+            metrics: The metrics to use. Are calculated on the validation step. Defaults to `None`.
+            logger: Tensorboard logger to use. Defaults to `None`.
         """
         self.loss_fn = loss_fn
         self.n_epochs = n_epochs
@@ -243,7 +245,7 @@ class Trainer:
                         self._logger.add_scalar(f"metric/val_{k}", result.item(), pbar.n)
                 pbar.set_postfix(
                     {
-                        "val_loss": val_loss.item(),
+                        "val_loss": val_epoch_loss.item(),
                         **{f"val_{k}": m.item() for k, m in val_metric_results.items()},
                     }
                 )
@@ -253,6 +255,9 @@ class Trainer:
                 self._best_loss = _loss
                 self._best_model = eqx.combine(trainable, static)
                 self._best_opt_state = self._opt_state
+                if self._logger is not None:
+                    for k, result in val_metric_results.items():
+                        self._logger.add_scalar(f"metric/best_val_{k}", result.item(), pbar.n)
 
         return eqx.combine(trainable, static)
 
