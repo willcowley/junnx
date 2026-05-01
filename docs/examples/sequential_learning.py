@@ -40,7 +40,7 @@ from junnx.variational import GaussianVariationalDistribution
 
 # %% [markdown]
 
-# First, let's create some toy data and divide it into separate learnings tasks.
+# First, let's create some toy data and divide it into separate learning tasks.
 
 
 # %%
@@ -180,7 +180,7 @@ _plot_model(m, ds1, 1999, 1_024)
 
 # Now we replace the original model prior with the posterior that we've learned from Task 1. Note how we place the `net`
 # of the model into a `TractableStochasticNetPrior` and then replace the previous prior with this new object. We use
-# some [Equinox](https://docs.kidger.site/equinox/) [manipulation](https://docs.kidger.site/equinox/api/manipulation/)
+# some [Equinox](https://docs.kidger.site/equinox/) pytree [manipulation](https://docs.kidger.site/equinox/api/manipulation/)
 # to facilitate this.
 
 # %%

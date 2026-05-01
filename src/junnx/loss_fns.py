@@ -15,7 +15,7 @@ from junnx.variational import GaussianVariationalDistribution
 
 
 class LossFn(eqx.Module):
-    """Abstract base class for loss funnctions."""
+    """Abstract base class for loss functions."""
 
     @abc.abstractmethod
     def __call__(
@@ -75,7 +75,7 @@ class NLLLoss(LossFn):
 
 class SampleFSVILoss(NLLLoss):
     """
-    A Loss that performs functions-space variational inference (FSVI) using an MC sample approach to the KL
+    A loss that performs functions-space variational inference (FSVI) using an MC sample approach to the KL
     divergence term.
     """
 
@@ -112,7 +112,7 @@ class SampleFSVILoss(NLLLoss):
 
 class TractableFSVILoss(NLLLoss):
     """
-    A Loss that performs functions-space variational inference (FSVI) using the tractable approximation of Rudner et al.
+    A loss that performs functions-space variational inference (FSVI) using the tractable approximation of Rudner et al.
     to compute the KL divergence term.
     """
 

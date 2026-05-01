@@ -108,7 +108,7 @@ sampler = UniformSampler(n_dim=1, n_samples=32, low=(-6.0,), high=(6.0,))
 
 # %% [markdown]
 
-# The `SampleFSVILoss` compute the ELBO using MC samples for approximating both data (NLL) and KL terms.
+# The `SampleFSVILoss` computes the ELBO using MC samples for approximating both data (NLL) and KL terms.
 
 # %%
 loss_fn = SampleFSVILoss(n_samples_nll=16, n_samples_kl=64)
