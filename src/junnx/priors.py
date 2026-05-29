@@ -96,6 +96,11 @@ class IsotropicStationaryKernelPrior(Prior):
     @abc.abstractmethod
     def kernel(self, x: jnp.ndarray) -> jnp.ndarray: ...
 
+    def mean_function(self, x: jnp.ndarray) -> jnp.ndarray:
+        # x: [N, D]
+        N, *_ = x.shape
+        return jnp.zeros((N,), dtype=x.dtype)
+
     def __call__(self, x: jnp.ndarray, *, key: jnp.ndarray) -> tfp.distributions.Distribution:
         # x: [N, D]
         N, *_ = x.shape
@@ -103,7 +108,7 @@ class IsotropicStationaryKernelPrior(Prior):
         cov = 0.5 * (cov + cov.T)  # enforce symmetry
         L = jnp.linalg.cholesky(cov + _JITTER * jnp.eye(N, dtype=cov.dtype))  # [N, N]
         return tfp.distributions.MultivariateNormalTriL(
-            loc=jnp.zeros((N,), dtype=L.dtype), scale_tril=L
+            loc=self.mean_function(x), scale_tril=L
         )
 
 
