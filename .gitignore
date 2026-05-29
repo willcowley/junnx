@@ -19,3 +19,6 @@ htmlcov/
 
 # env files
 .env
+
+# pdm
+.pdm-python
