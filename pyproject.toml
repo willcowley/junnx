@@ -44,7 +44,8 @@ dev = [
     "mkdocs-jupyter (>=0.25.1,<0.26.0)",
     "mkdocstrings[python] (>=1.0.1,<2.0.0)",
     "taskipy (>=1.14.1,<2.0.0)",
-    "diffrax (<=0.7.2)"
+    "diffrax (<=0.7.2)",
+    "notebook (>=7.5.6,<8.0.0)"
 ]
 cuda = [
     "jax[cuda12] (>=0.5,<0.6)",
