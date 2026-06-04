@@ -28,6 +28,14 @@ theme:
   # from https://pictogrammers.com/library/mdi/icon/chart-bell-curve/
   favicon: "assets/chart-bell-curve.svg"
 
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - assets/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
 extra_css:
   - assets/styles.css
 
@@ -37,6 +45,7 @@ nav:
   - Examples:
     - 'examples/regression1d.py'
     - 'examples/sequential_learning.py'
+    - 'examples/pinn_burgers.py'
   - API:
     - 'api/datasets.md'
     - 'api/layers.md'

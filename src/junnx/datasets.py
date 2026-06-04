@@ -133,7 +133,7 @@ class DataLoader:
         self.idxs = jnp.arange(len(data))
         self._batch_size = batch_size
         self.shuffle = shuffle
-        self.key = key
+        self._key = key
 
     @property
     def batch_size(self) -> int:
@@ -143,11 +143,19 @@ class DataLoader:
     def batches_per_epoch(self) -> int:
         return len(self.data) // self.batch_size
 
+    @property
+    def key(self) -> jnp.ndarray:
+        return self._key
+
+    @key.setter
+    def key(self, key: jnp.ndarray) -> None:
+        self._key = key
+
     def __iter__(self) -> Iterator[tuple[jnp.ndarray, jnp.ndarray]]:
         # iterates over the data in batches of size `batch_size`
         if self.shuffle:
-            idxs = jax.random.permutation(self.key, self.idxs)
-            (self.key,) = jax.random.split(self.key, 1)
+            idxs = jax.random.permutation(self._key, self.idxs)
+            (self._key,) = jax.random.split(self._key, 1)
         else:
             idxs = self.idxs
         start = 0

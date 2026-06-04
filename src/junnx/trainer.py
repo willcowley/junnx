@@ -255,7 +255,7 @@ class Trainer:
                 self._best_loss = _loss
                 self._best_model = eqx.combine(trainable, static)
                 self._best_opt_state = self._opt_state
-                if self._logger is not None:
+                if self._logger is not None and val_dl is not None:
                     for k, result in val_metric_results.items():
                         self._logger.add_scalar(f"metric/best_val_{k}", result.item(), pbar.n)
 

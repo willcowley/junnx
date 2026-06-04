@@ -22,7 +22,9 @@ class DenseStochasticLayer(eqx.Module):
     use_bias: bool = eqx.field(static=True)
     """Whether to use a bias term. Defaults to True."""
 
-    def __init__(self, n_in: int, n_out: int, use_bias: bool, *, key) -> None:
+    def __init__(
+        self, n_in: int, n_out: int, use_bias: bool = True, *, key: jnp.ndarray
+    ) -> None:
         wm_key, b_key = jax.random.split(key, 2)
 
         self.n_in = n_in
