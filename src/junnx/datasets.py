@@ -23,7 +23,9 @@ class Dataset:
 class TensorDataset(Dataset):
     """Dataset wrapping x and y tensors."""
 
-    def __init__(self, x: jnp.ndarray, y: jnp.ndarray) -> None:
+    def __init__(
+        self, x: jnp.ndarray, y: jnp.ndarray, mask: jnp.ndarray | None = None
+    ) -> None:
         xshape, *_ = x.shape
         yshape, *_ = y.shape
         if xshape != yshape:
@@ -32,6 +34,13 @@ class TensorDataset(Dataset):
             )
         self._x = x
         self._y = y
+        if mask is not None:
+            mshape, *_ = mask.shape
+            if mshape != yshape:
+                raise ValueError(
+                    f"Expected mask to have the same leading dimension, got {mshape}"
+                )
+        self._m = mask
 
     @property
     def x(self) -> jnp.ndarray:
@@ -41,22 +50,17 @@ class TensorDataset(Dataset):
     def y(self) -> jnp.ndarray:
         return self._y
 
+    @property
+    def mask(self) -> jnp.ndarray | None:
+        return self._m
+
     def __len__(self) -> int:
         return len(self._x)
 
-    def __getitem__(self, idx: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
-        return self._x[idx], self._y[idx]
-
-    def __add__(self, other: "TensorDataset") -> "TensorDataset":
-        if not isinstance(other, TensorDataset):
-            raise TypeError
-        if self.x.shape[1:] != other.x.shape[1:]:
-            raise ValueError
-        if self.y.shape[1:] != other.y.shape[1:]:
-            raise ValueError
-        x = jnp.concatenate([self.x, other.x], axis=0)
-        y = jnp.concatenate([self.y, other.y], axis=0)
-        return TensorDataset(x, y)
+    def __getitem__(
+        self, idx: jnp.ndarray
+    ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray | None]:
+        return self._x[idx], self._y[idx], self._m[idx] if self._m is not None else None
 
 
 class TransformedTensorDataset(TensorDataset):
@@ -73,7 +77,7 @@ class TransformedTensorDataset(TensorDataset):
         y = ds.y
         if ybijector is not None:
             y = ybijector(y)
-        super().__init__(x, y)
+        super().__init__(x, y, ds.mask)
 
     @property
     def xbijector(self) -> tfpb.Bijector:
@@ -100,8 +104,8 @@ class StandardizeTransformFn(DataTransformFn):
 
     def fit(self, x: jnp.ndarray) -> tfpb.Bijector:
         # x: [B, ...]
-        mean = jnp.mean(x, axis=self.axis, keepdims=self.keepdims)
-        std = jnp.std(x, axis=self.axis, keepdims=self.keepdims) + _EPS
+        mean = jnp.nanmean(x, axis=self.axis, keepdims=self.keepdims)
+        std = jnp.nanstd(x, axis=self.axis, keepdims=self.keepdims) + _EPS
         if self.batch_axis is not None:
             mean = jnp.squeeze(mean, axis=self.batch_axis)
             std = jnp.squeeze(std, axis=self.batch_axis)

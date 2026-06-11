@@ -23,6 +23,7 @@ class LossFn(eqx.Module):
         m: TrainingModel,
         x: jnp.ndarray,
         y: jnp.ndarray,
+        mask: jnp.ndarray | None,
         context_x: jnp.ndarray | None,
         n_batches_per_epoch: int,
         *,
@@ -58,6 +59,7 @@ class NLLLoss(LossFn):
         m: TrainingModel,
         x: jnp.ndarray,
         y: jnp.ndarray,
+        mask: jnp.ndarray | None,
         context_x: jnp.ndarray | None,
         n_batches_per_epoch: int,
         *,
@@ -68,7 +70,15 @@ class NLLLoss(LossFn):
         # compute NLL
         predf = m.net.predict_f_samples(x, self.n_samples_nll, key=key)  # [SN, N, O]
         predy = m.likelihood(predf)
-        nll_loss = -predy.log_prob(y[None]).sum(axis=-1).mean()  # [,]  per-batch NLL
+        if mask is not None:
+            y = jnp.where(mask, y, 0.0)
+        log_prob_y = predy.log_prob(y[None])  # [SN, N, O]
+        if mask is not None:
+            log_prob_y = jnp.where(mask[None], log_prob_y, 0.0)  # [SN, N, O]
+            log_prob_y = log_prob_y.sum(axis=-1) / mask.sum()  # [SN, N]
+        else:
+            log_prob_y = log_prob_y.mean(axis=-1)
+        nll_loss = -log_prob_y.sum(axis=-1).mean()  # [,]  per-batch NLL
 
         return nll_loss / batch_size, predf  # [,], [SN, N, O]
 
@@ -87,6 +97,7 @@ class SampleFSVILoss(NLLLoss):
         m: TrainingModel,
         x: jnp.ndarray,
         y: jnp.ndarray,
+        mask: jnp.ndarray | None,
         context_x: jnp.ndarray | None,
         n_batches_per_epoch: int,
         *,
@@ -96,7 +107,7 @@ class SampleFSVILoss(NLLLoss):
         batch_size, *_ = x.shape
         nll_key, kl_key = jax.random.split(key, 2)
         nll_loss, predf = super().__call__(
-            m, x, y, context_x, n_batches_per_epoch, key=nll_key
+            m, x, y, mask, context_x, n_batches_per_epoch, key=nll_key
         )
         # compute KL div
         klq_key, klp_key = jax.random.split(kl_key, 2)
@@ -121,6 +132,7 @@ class TractableFSVILoss(NLLLoss):
         m: TrainingModel,
         x: jnp.ndarray,
         y: jnp.ndarray,
+        mask: jnp.ndarray | None,
         context_x: jnp.ndarray | None,
         n_batches_per_epoch: int,
         *,
@@ -130,7 +142,7 @@ class TractableFSVILoss(NLLLoss):
         batch_size, *_ = x.shape
         nll_key, kl_key = jax.random.split(key, 2)
         nll_loss, predf = super().__call__(
-            m, x, y, context_x, n_batches_per_epoch, key=nll_key
+            m, x, y, mask, context_x, n_batches_per_epoch, key=nll_key
         )
         # compute KL div
         klq_key, klp_key = jax.random.split(kl_key, 2)
