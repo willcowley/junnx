@@ -19,19 +19,17 @@ def _loss_fn(
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
-    m: jnp.ndarray | None,
     context_x: jnp.ndarray | None,
     loss_fn: LossFn,
     n_batches_per_epoch: int,
     *,
     key: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-    model = eqx.combine(trainable, static)
+    m = eqx.combine(trainable, static)
     return loss_fn(
-        model,
+        m,
         x,
         y,
-        m,
         context_x,
         n_batches_per_epoch,
         key=key,
@@ -39,13 +37,11 @@ def _loss_fn(
 
 
 @eqx.filter_jit
-@eqx.debug.assert_max_traces(max_traces=1)
 def train_step(
     trainable: TrainingModel,
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
-    m: jnp.ndarray | None,
     context_x: jnp.ndarray | None,
     loss_fn: LossFn,
     n_batches_per_epoch: int,
@@ -83,21 +79,12 @@ def train_step(
         static,
         x,
         y,
-        m,
         context_x,
         loss_fn,
         n_batches_per_epoch,
         key=key,
     )
-    # grad_norm = jnp.sqrt(
-    #     sum(jnp.sum(g ** 2) for g in jax.tree.leaves(grads))
-    # )
-    # jax.debug.print("grad_norm: {}", grad_norm)
     update, opt_state = opt.update(grads, opt_state)
-    # update_norm = jnp.sqrt(
-    #     sum(jnp.sum(u ** 2) for u in jax.tree.leaves(update))
-    # )
-    # jax.debug.print("update_norm: {}", update_norm)
     trainable = eqx.apply_updates(trainable, update)
     return loss, trainable, opt_state
 
@@ -108,7 +95,6 @@ def val_step(
     static: TrainingModel,
     x: jnp.ndarray,
     y: jnp.ndarray,
-    m: jnp.ndarray | None,
     context_x: jnp.ndarray | None,
     loss_fn: LossFn,
     n_batches_per_epoch: int,
@@ -120,7 +106,6 @@ def val_step(
         static,
         x,
         y,
-        m,
         context_x,
         loss_fn,
         n_batches_per_epoch,
@@ -138,6 +123,7 @@ class Trainer:
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
         logger: Optional[SummaryWriter] = None,
+        start_epoch: int = 0,
     ) -> None:
         """
         Orchestrate model training.
@@ -160,6 +146,7 @@ class Trainer:
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
         self._logger = logger
+        self._start_epoch = start_epoch
 
     @property
     def best_model(self) -> TrainingModel:
@@ -172,6 +159,10 @@ class Trainer:
         if self._best_opt_state is None:
             raise ValueError("No model has been trained yet.")
         return self._best_opt_state
+
+    @best_opt_state.setter
+    def best_opt_state(self, opt_state: optax.OptState) -> None:
+        self._best_opt_state = opt_state
 
     @property
     def logger(self) -> Optional[SummaryWriter]:
@@ -202,11 +193,17 @@ class Trainer:
             self._opt_state = self.opt.init(trainable)
 
         for _ in (
-            pbar := tqdm(range(self.n_epochs), desc="Training", position=0, leave=False)
+            pbar := tqdm(
+                range(self._start_epoch, self._start_epoch + self.n_epochs),
+                desc="Training",
+                position=0,
+                leave=False,
+                initial=self._start_epoch,
+            )
         ):
             epoch_loss = jnp.array(0.0)
             epoch_step_count = 0
-            for x, y, m in dl:
+            for x, y in dl:
                 key, key_step, key_context = jax.random.split(key, 3)
                 context_x = sampler(key_context) if sampler is not None else None
                 loss, trainable, self._opt_state = train_step(
@@ -214,7 +211,6 @@ class Trainer:
                     static,
                     x,
                     y,
-                    m,
                     context_x,
                     self.loss_fn,
                     dl.batches_per_epoch,
@@ -234,7 +230,7 @@ class Trainer:
                 val_epoch_loss = jnp.array(0.0)
                 epoch_step_count = 0
                 val_metrics = {k: _m.empty() for k, _m in self._metrics.items()}
-                for val_x, val_y, val_m in val_dl:
+                for val_x, val_y in val_dl:
                     key, key_step, key_context = jax.random.split(key, 3)
                     val_context_x = sampler(key_context) if sampler is not None else None
                     val_loss, val_predf = val_step(
@@ -242,7 +238,6 @@ class Trainer:
                         static,
                         val_x,
                         val_y,
-                        val_m,
                         val_context_x,
                         self.loss_fn,
                         val_dl.batches_per_epoch,
@@ -288,7 +283,7 @@ class Trainer:
         key: jnp.ndarray,
     ) -> Mapping[str, jnp.ndarray]:
         _metrics = {k: _m.empty() for k, _m in metrics.items()}
-        for x, y, m in dl:
+        for x, y in dl:
             key, subkey = jax.random.split(key)
             f_samples = model.net.predict_f_samples(x, n_samples, key=subkey)
             ydist = model.predict_ydist(f_samples)

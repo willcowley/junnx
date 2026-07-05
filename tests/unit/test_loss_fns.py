@@ -1,4 +1,3 @@
-import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jaxr
 import numpy.testing as npt
@@ -47,69 +46,10 @@ def test_nll_loss(
     model, x_batch, y_batch, _ = model_and_data
     loss_fn = NLLLoss(n_samples_nll=4)
 
-    loss, predf = loss_fn(model, x_batch, y_batch, None, None, 1, key=key)
+    loss, predf = loss_fn(model, x_batch, y_batch, None, 1, key=key)
 
     assert loss.shape == ()
     assert predf.shape == (4, 32, 1)
-
-
-class _NormalLikelihood(GaussianLikelihood):
-
-    def __call__(self, x: jnp.ndarray) -> tfp.distributions.Normal:
-        # x: [S, N, O]
-        return tfp.distributions.Normal(loc=x, scale=self.scale)
-
-
-def test_nll_loss_masked(
-    model_and_data: tuple[TrainingModel, jnp.ndarray, jnp.ndarray, jnp.ndarray],
-) -> None:
-    key = jaxr.PRNGKey(42)
-    model, x_batch, y_batch, _ = model_and_data
-
-    model = eqx.tree_at(
-        lambda m: m.likelihood,
-        model,
-        _NormalLikelihood(scale_init=(1.0,), bijector=tfp.bijectors.Softplus()),
-    )
-
-    loss_fn = NLLLoss(n_samples_nll=4)
-
-    mask = jnp.ones_like(y_batch)
-    loss, _ = loss_fn(model, x_batch, y_batch, None, None, 1, key=key)
-    loss_masked, _ = loss_fn(model, x_batch, y_batch, mask, None, 1, key=key)
-    npt.assert_allclose(loss, loss_masked)
-
-    mask = jnp.ones_like(y_batch)
-    mask = mask.at[:16].set(0.0)
-    loss, _ = loss_fn(model, x_batch[16:], y_batch[16:], None, None, 1, key=key)
-    loss_masked, _ = loss_fn(
-        model, x_batch, y_batch.at[:16].set(jnp.nan), mask, None, 1, key=key
-    )
-    npt.assert_allclose(loss, loss_masked)
-
-
-def test_nll_loss_masked_gradable(
-    model_and_data: tuple[TrainingModel, jnp.ndarray, jnp.ndarray, jnp.ndarray],
-) -> None:
-
-    key = jaxr.PRNGKey(42)
-    model, x_batch, y_batch, _ = model_and_data
-
-    model = eqx.tree_at(
-        lambda m: m.likelihood,
-        model,
-        _NormalLikelihood(scale_init=(1.0,), bijector=tfp.bijectors.Softplus()),
-    )
-
-    loss_fn = NLLLoss(n_samples_nll=4)
-
-    fn = eqx.filter_jit(eqx.filter_value_and_grad(loss_fn, has_aux=True))
-    mask = jnp.ones_like(y_batch)
-    mask = mask.at[:16].set(0.0)
-    (loss, _), grads = fn(model, x_batch, y_batch.at[:16].set(jnp.nan), mask, None, 1, key=key)
-    # (loss, _), grads = fn(model, x_batch, y_batch, mask, None, 1, key=key)
-
-    assert not jnp.any(jnp.isnan(grads.likelihood.scale)).item()
 
 
 def test_fsvi_loss(
@@ -119,7 +59,7 @@ def test_fsvi_loss(
     key = jaxr.PRNGKey(42)
     model, x_batch, y_batch, context_x_batch = model_and_data
 
-    loss, predf = fsvi_loss_fn(model, x_batch, y_batch, None, context_x_batch, 1, key=key)
+    loss, predf = fsvi_loss_fn(model, x_batch, y_batch, context_x_batch, 1, key=key)
 
     assert loss.shape == ()
     assert predf.shape == (4, 32, 1)
@@ -163,13 +103,13 @@ def test_fsvi_kl_loss_scales(
     key_nll, _ = jaxr.split(key, 2)  # mimics split within fsvi losses
     model, x_batch, y_batch, context_x_batch = model_and_data
 
-    nll_loss, _ = NLLLoss(n_samples_nll=4)(model, x_batch, y_batch, None, None, 1, key=key_nll)
+    nll_loss, _ = NLLLoss(n_samples_nll=4)(model, x_batch, y_batch, None, 1, key=key_nll)
 
-    fsvi_loss1, _ = fsvi_loss_fn(model, x_batch, y_batch, None, context_x_batch, 1, key=key)
+    fsvi_loss1, _ = fsvi_loss_fn(model, x_batch, y_batch, context_x_batch, 1, key=key)
 
     kl_loss1 = fsvi_loss1 - nll_loss
 
-    fsvi_loss2, _ = fsvi_loss_fn(model, x_batch, y_batch, None, context_x_batch, 2, key=key)
+    fsvi_loss2, _ = fsvi_loss_fn(model, x_batch, y_batch, context_x_batch, 2, key=key)
 
     kl_loss2 = fsvi_loss2 - nll_loss
 

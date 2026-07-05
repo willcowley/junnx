@@ -300,7 +300,7 @@ class BurgerPrior(RBFPrior):
     def wx(self, x: jnp.ndarray) -> jnp.ndarray:
         return boundary_condition_fn(x)  # enforces boundary conditions
 
-    def kernel(self, x: jnp.ndarray) -> jnp.ndarray:
+    def kernel(self, x: jnp.ndarray, x2: jnp.ndarray | None = None) -> jnp.ndarray:
         _x, _ = jnp.split(x, [1], axis=-1)
         kxx = super().kernel(_x)
         wx = self.wx(_x)

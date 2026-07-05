@@ -65,13 +65,16 @@ class DirichletPrior(Prior):
         return tfp.distributions.Dirichlet(concentration=self.concentration)
 
 
-def squared_distance_matrix(x: jnp.ndarray) -> jnp.ndarray:
-    # x: [..., N, D]
-    x2 = jnp.sum(x**2, axis=-1, keepdims=True)  # [..., N, 1]
-    x2T = jnp.swapaxes(x2, -2, -1)  # [..., 1, N]
-    xT = jnp.swapaxes(x, -2, -1)  # [..., D, N]
-    r2 = x2 + x2T - 2.0 * x @ xT  # [..., N, N]
-    return jnp.maximum(r2, 0.0)  # [..., N, N]
+def square_distance(x: jnp.ndarray, x2: jnp.ndarray | None = None) -> jnp.ndarray:
+    # x: [..., N, D], x2: [..., M, D] or None (defaults to x, i.e. self-distance)
+    if x2 is None:
+        x2 = x
+    xs = jnp.sum(x**2, axis=-1, keepdims=True)  # [..., N, 1]
+    x2s = jnp.sum(x2**2, axis=-1, keepdims=True)  # [..., M, 1]
+    x2sT = jnp.swapaxes(x2s, -2, -1)  # [..., 1, M]
+    x2T = jnp.swapaxes(x2, -2, -1)  # [..., D, M]
+    r2 = xs + x2sT - 2.0 * x @ x2T  # [..., N, M]
+    return r2
 
 
 class IsotropicStationaryKernelPrior(Prior):
@@ -89,12 +92,15 @@ class IsotropicStationaryKernelPrior(Prior):
         # x: [N, D]
         return x / self.lengthscales
 
-    def scaled_squared_euclid_dist(self, x: jnp.ndarray) -> jnp.ndarray:
-        # x: [N, D]
-        return squared_distance_matrix(self.scale(x))  # [N, N]
+    def scaled_squared_euclid_dist(
+        self, x: jnp.ndarray, x2: jnp.ndarray | None = None
+    ) -> jnp.ndarray:
+        # x: [N, D], x2: [M, D] or None
+        x2_scaled = self.scale(x2) if x2 is not None else None
+        return square_distance(self.scale(x), x2_scaled)  # [N, N] or [N, M]
 
     @abc.abstractmethod
-    def kernel(self, x: jnp.ndarray) -> jnp.ndarray: ...
+    def kernel(self, x: jnp.ndarray, x2: jnp.ndarray | None = None) -> jnp.ndarray: ...
 
     def mean_function(self, x: jnp.ndarray) -> jnp.ndarray:
         # x: [N, D]
@@ -118,18 +124,18 @@ class RBFPrior(IsotropicStationaryKernelPrior):
     kernel.
     """
 
-    def kernel(self, x: jnp.ndarray) -> jnp.ndarray:
-        # x: [N, D]
-        r2 = self.scaled_squared_euclid_dist(x)  # [N, N]
+    def kernel(self, x: jnp.ndarray, x2: jnp.ndarray | None = None) -> jnp.ndarray:
+        # x: [N, D], x2: [M, D] or None
+        r2 = self.scaled_squared_euclid_dist(x, x2)  # [N, N] or [N, M]
         return self.variance * jnp.exp(-0.5 * r2)
 
 
 class Matern52Prior(IsotropicStationaryKernelPrior):
     """Matérn 5/2 kernel prior."""
 
-    def kernel(self, x: jnp.ndarray) -> jnp.ndarray:
-        # X: [N, D]
-        r = jnp.sqrt(self.scaled_squared_euclid_dist(x) + _EPS)  # [N, N]
+    def kernel(self, x: jnp.ndarray, x2: jnp.ndarray | None = None) -> jnp.ndarray:
+        # x: [N, D], x2: [M, D] or None
+        r = jnp.sqrt(self.scaled_squared_euclid_dist(x, x2) + _EPS)  # [N, N] or [N, M]
         sqrt5 = jnp.sqrt(5.0)
         return (
             self.variance
