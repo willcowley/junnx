@@ -13,7 +13,7 @@
 # ---
 
 # %% [markdown]
-# # Function-space variational inference with neural ODEs
+# # Function-space variational inference with Hamiltonian neural ODEs
 #
 # In this notebook we combine function space inference with a neural ODE
 
@@ -70,6 +70,10 @@ sol = diffeqsolve(
 )
 
 xs, xdots = sol.ys.T
+
+# %%
+fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+ax.plot(t_grid, xs**2 + xdots**2)
 
 # %%
 
@@ -243,18 +247,14 @@ _N_SAMPLES = 8
 loss_fn_fsvi = TractableHamiltonianFSVILoss(n_samples_nll=_N_SAMPLES)
 
 sampler = UniformSampler(n_dim=2, n_samples=64, low=(-2.0, -2.0), high=(2.0, 2.0))
-
-# %%
-
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-logdir = "/home/wcowley/junnx_out/shm_node/"
-logger = SummaryWriter(logdir + timestamp)
-
 dl = DataLoader(ds, batch_size=32, shuffle=False, key=jr.PRNGKey(20260703))
 
 opt = optax.adam(1e-3)
 
 # %%
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+logdir = "/home/wcowley/junnx_out/shm_node/"
+logger = SummaryWriter(logdir + timestamp)
 trainer = Trainer(
     n_epochs=1_500,
     opt=opt,
@@ -265,10 +265,9 @@ trainer.train(model, dl, sampler, key=jr.PRNGKey(20260704))
 m = trainer.best_model
 
 # %%
-
 # plot hamiltonian estimates
 
-n_grid = 21
+n_grid = 101
 x_grid = jnp.linspace(-2, 2, n_grid)
 xdot_grid = jnp.linspace(-2, 2, n_grid)
 x0, x1 = jnp.meshgrid(x_grid, xdot_grid)
@@ -279,6 +278,8 @@ m_hamiltonian = m.net.vector_field.hamiltonian_net
 key_pred = jr.PRNGKey(20260705)
 hs = m_hamiltonian.predict_f_samples(z, 32, key=key_pred)
 
+
+# %%
 fig, axes = plt.subplots(1, 3, figsize=(12 + 1.5, 4))
 ax0, ax1, ax2 = axes
 
@@ -286,29 +287,55 @@ ground_truth = 0.5 * (z[:, :1] ** 2 + z[:, 1:] ** 2).reshape(n_grid, n_grid)
 mean = hs.mean(axis=0).reshape(n_grid, n_grid)
 var = hs.var(axis=0).reshape(n_grid, n_grid)
 imshow_kwargs = {"extent": [-2, 2, -2, 2], "origin": "lower"}
-ax0.imshow(ground_truth - mean, **imshow_kwargs)
+ax0.imshow(ground_truth, **imshow_kwargs)
 ax1.imshow(mean, **imshow_kwargs)
-ax2.imshow(var, **imshow_kwargs)
+ax2.imshow(var, **imshow_kwargs, vmin=0.25, vmax=1.0)
 for _ax in (ax0, ax1, ax2):
-    _ax.scatter(*ds.y.T, s=6, edgecolor="w", linewidths=0.5)
+    _ax.scatter(*ds.y.T, s=6, edgecolor="w", linewidths=0.5, color="#4E79A7")
 fig.savefig(f"{logdir}/shm_node_hamiltonian_{timestamp}.png", dpi=200)
 
 
 # %%
-n_pred_cycle = 10
-t_pred = jnp.linspace(0, 2 * jnp.pi * n_pred_cycle, 400 * n_pred_cycle + 1)
-key_pred = jr.PRNGKey(0)
+dummy_t = jnp.zeros(shape=())
 
-f_samples = m.net.predict_f_samples(t_pred, n_samples=10, key=key_pred)
+n_grid = 21
+x_grid = jnp.linspace(-2, 2, n_grid)
+xdot_grid = jnp.linspace(-2, 2, n_grid)
+x0, x1 = jnp.meshgrid(x_grid, xdot_grid)
+z = jnp.concat([x0.reshape(-1, 1), x1.reshape(-1, 1)], axis=-1)  # [N*N, 2]
+
+d_ground_truth = shm_vector_field(dummy_t, (z[:, 0], z[:, 1]), (1.0,))
+
+ks = jr.split(jr.PRNGKey(0), 64)
+dz = jax.vmap(
+    jax.vmap(lambda _z, _k: m.net.vector_field(dummy_t, _z, args=(_k,)), in_axes=(0, None)),
+    in_axes=(None, 0),
+)(z, ks)
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(4 * 2 + 0.5, 4))
+ax0, ax1 = axes
+ax0.quiver(*z.T, *d_ground_truth)
+ax1.quiver(*z.T, *jnp.mean(dz, axis=0).T)
+for _ax in (ax0, ax1):
+    _ax.scatter(*ds.y.T, s=8, edgecolor="w", linewidths=0.5, color="#4E79A7")
+
+
+# %%
+n_pred_cycle = 4
+t_pred = jnp.linspace(0, 2 * jnp.pi * n_pred_cycle, 100 * n_pred_cycle + 1)
+key_pred = jr.PRNGKey(1)
+
+f_samples = m.net.predict_f_samples(t_pred, n_samples=8, key=key_pred)
 
 # %%
 
-fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-ax.scatter(ds.y[:, 0], ds.y[:, 1], s=4)
-for f in f_samples:
-    ax.plot(f[:, 0], f[:, 1], lw=0.5, c="#D4D4D4")
-ax.set_xlim(-2, 2)
-ax.set_ylim(-2, 2)
+fig, axes = plt.subplots(3, 2, figsize=(4 * 2 + 0.5, 4 * 3 + 0.5))
+for ax, f in zip(axes.ravel(), f_samples):
+    ax.scatter(ds.y[:, 0], ds.y[:, 1], s=4)
+    ax.plot(f[:, 0], f[:, 1], lw=0.5)
+    ax.set_xlim(-2, 2)
+    ax.set_ylim(-2, 2)
 
 fig.savefig(f"{logdir}/shm_node_results_{timestamp}.png", dpi=200)
 
