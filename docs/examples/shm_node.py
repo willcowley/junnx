@@ -16,8 +16,8 @@
 # # Function-space variational inference with Hamiltonian neural ODEs
 #
 # In this notebook we combine function space inference with a Hamiltonian neural ODE, that is a network for which the
-# Hamiltonian is defined by a stochastic network (i.e. a distribution over functions $H(z, \theta)$, where
-# $z=[x, \dot{x}]$) on which we place an RBF function prior. The vector field is then computed according to
+# Hamiltonian is defined by a stochastic network (i.e. a distribution over functions \\\(H(z, \theta)\\\), where
+# \\\(z=[x, \dot{x}]\\\)) on which we place an RBF function prior. The vector field is then computed according to
 # $$f(z, \theta) = J \begin{bmatrix}\frac{\partial{H(z)}}{\partial x}\\ \frac{\partial{H(z)}}{\partial \dot{x}}\end{bmatrix} $$
 # where
 # $$
@@ -30,7 +30,6 @@
 
 # %%
 
-from datetime import datetime
 from typing import Sequence
 
 import equinox as eqx
@@ -43,14 +42,13 @@ import optax
 import tensorflow_probability.substrates.jax as tfp
 from diffrax import ODETerm, PIDController, SaveAt, Tsit5, diffeqsolve
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from tensorboardX import SummaryWriter
 
 from junnx.datasets import DataLoader, TensorDataset
 from junnx.layers import DenseStochasticLayer
 from junnx.likelihoods import GaussianLikelihood
 from junnx.loss_fns import TractableFSVILoss
 from junnx.model import TrainingModel
-from junnx.net import _ACTIVATIONS, StochasticNet, TractableStochasticNet
+from junnx.net import StochasticNet, TractableStochasticNet
 from junnx.priors import RBFPrior
 from junnx.samplers import UniformSampler
 from junnx.trainer import Trainer
@@ -162,8 +160,6 @@ class TractableMLP(TractableStochasticNet):
     layers: Sequence[eqx.nn.Linear]
     _last_layer: DenseStochasticLayer
 
-    activation: str = eqx.field(static=True)
-
     def __init__(
         self,
         n_in: int,
@@ -186,12 +182,11 @@ class TractableMLP(TractableStochasticNet):
         key_layer, _ = jr.split(key)
         self.layers = layers
         self._last_layer = DenseStochasticLayer(n_hidden, n_out, use_bias, key=key_layer)
-        self.activation = "silu"
 
     def _call_wout_last_layer(self, x: jnp.ndarray, key: jnp.ndarray) -> jnp.ndarray:
         for layer in self.layers:
             x = layer(x)
-            x = _ACTIVATIONS[self.activation](x)
+            x = jax.nn.silu(x)
         return x
 
     @property
@@ -294,8 +289,6 @@ model = TrainingModel(
 
 # %%
 Z_MAX = 2.0
-
-# %%
 loss_fn_fsvi = TractableHamiltonianFSVILoss(n_samples_nll=8)
 sampler = UniformSampler(
     n_dim=2, n_samples=64, low=(-Z_MAX * 2, -Z_MAX * 2), high=(Z_MAX * 2, Z_MAX * 2)
@@ -305,14 +298,10 @@ dl = DataLoader(ds, batch_size=32, shuffle=False, key=jr.PRNGKey(20260703))
 opt = optax.adam(1e-3)
 
 # %%
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-logdir = "/home/wcowley/junnx_out/shm_node/"
-logger = SummaryWriter(logdir + timestamp)
 trainer = Trainer(
     n_epochs=2_000,
     opt=opt,
     loss_fn=loss_fn_fsvi,
-    logger=logger,
 )
 trainer.train(model, dl, sampler, key=jr.PRNGKey(20260704))
 m = trainer.best_model
@@ -325,15 +314,8 @@ def get_zgrid(n_grid: int) -> jnp.ndarray:
     return jnp.concat([x0.reshape(-1, 1), x1.reshape(-1, 1)], axis=-1)  # [N*N, 2]
 
 
-n_grid = 101
-z = get_zgrid(n_grid)
-
-
-# %%
 dummy_t = jnp.zeros(shape=())
-
-n_gridq = 11
-zq = get_zgrid(n_gridq)
+zq = get_zgrid(11)
 
 d_ground_truth = shm_vector_field(dummy_t, (zq[:, 0], zq[:, 1]), (1.0,))
 
@@ -347,6 +329,11 @@ dz_fn = jax.jit(
     )
 )
 dz = dz_fn(zq, ks)
+
+n_grid = 101
+z = get_zgrid(n_grid)
+dz_ = dz_fn(z, ks)
+dz_var = jnp.var(dz_, axis=0).sum(axis=-1)
 
 # %% [markdown]
 # Now, we'll compare the model predictions for our vector field to the ground truth (and overlay our training data for
@@ -369,8 +356,6 @@ for _ax in (ax0, ax1):
 
 # var plot
 fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-dz_ = dz_fn(z, ks)
-dz_var = jnp.var(dz_, axis=0).sum(axis=-1)
 im = ax.imshow(
     dz_var.reshape(n_grid, n_grid),
     extent=(-Z_MAX, Z_MAX, -Z_MAX, Z_MAX),
@@ -420,5 +405,3 @@ fig = plot_trajectories(f_samples)
 m_new_y0 = eqx.tree_at(lambda _m: _m.net.y0, m, jnp.array([sqrt2o2, sqrt2o2]))
 f_samples_new_y0 = m_new_y0.net.predict_f_samples(t_pred, n_samples=6, key=key_pred)
 fig = plot_trajectories(f_samples_new_y0)
-
-# %%

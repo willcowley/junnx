@@ -46,6 +46,7 @@ nav:
     - 'examples/regression1d.py'
     - 'examples/sequential_learning.py'
     - 'examples/pinn_burgers.py'
+    - 'examples/shm_node.py'
   - API:
     - 'api/datasets.md'
     - 'api/layers.md'
