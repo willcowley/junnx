@@ -376,7 +376,7 @@ im = ax.imshow(
     extent=(-Z_MAX, Z_MAX, -Z_MAX, Z_MAX),
     origin="lower",
     vmin=0.0,
-    vmax=dz_var.max().item(),
+    vmax=3.0,
 )
 ax.scatter(*ds.y.T, s=8, facecolor="#E15759", edgecolor="w", zorder=1)  # type: ignore[misc]
 _fmt_axes(ax)
@@ -393,15 +393,15 @@ fig.colorbar(
 # %%
 n_pred_cycle = 8
 t_pred = jnp.linspace(0, 2 * jnp.pi * n_pred_cycle, 100 * n_pred_cycle + 1)
-key_pred = jr.PRNGKey(20260707)
+key_pred = jr.PRNGKey(20260710)
 
-f_samples = m.net.predict_f_samples(t_pred, n_samples=6, key=key_pred)
+f_samples = m.net.predict_f_samples(t_pred, n_samples=4, key=key_pred)
 
 
 # %%
 def plot_trajectories(trajectories: jnp.ndarray) -> plt.Figure:
     # trajectories: [S, N, 2]
-    fig, axes = plt.subplots(3, 2, figsize=(4 * 2 + 0.5, 4 * 3 + 0.5))
+    fig, axes = plt.subplots(2, 2, figsize=(4 * 2 + 0.5, 4 * 2 + 0.5))
     for ax, f in zip(axes.ravel(), trajectories):
         ax.scatter(*ds.y.T, s=8, facecolor="#E15759", edgecolor="k", zorder=1)
         ax.plot(f[:, 0], f[:, 1], lw=0.5)
@@ -410,15 +410,15 @@ def plot_trajectories(trajectories: jnp.ndarray) -> plt.Figure:
     return fig
 
 
-plot_trajectories(f_samples)
+fig = plot_trajectories(f_samples)
 
 # %% [markdown]
 # We can also change our initial conditions. These initial conditions are further from our training data, note the
-# impact this has on individual trajectories!
+# impact this has on the individual trajectories!
 
 # %%
-m_new_y0 = eqx.tree_at(lambda _m: _m.net.y0, m, jnp.array([1.0, 1.0]))
+m_new_y0 = eqx.tree_at(lambda _m: _m.net.y0, m, jnp.array([sqrt2o2, sqrt2o2]))
 f_samples_new_y0 = m_new_y0.net.predict_f_samples(t_pred, n_samples=6, key=key_pred)
-plot_trajectories(f_samples_new_y0)
+fig = plot_trajectories(f_samples_new_y0)
 
 # %%
