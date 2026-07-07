@@ -123,7 +123,6 @@ class Trainer:
         opt_state: Optional[optax.OptState] = None,
         metrics: Optional[Mapping[str, Type[Metric]]] = None,
         logger: Optional[SummaryWriter] = None,
-        start_epoch: int = 0,
     ) -> None:
         """
         Orchestrate model training.
@@ -146,7 +145,6 @@ class Trainer:
         self._best_loss = jnp.asarray(jnp.inf)
         self._metrics = metrics if metrics is not None else {}
         self._logger = logger
-        self._start_epoch = start_epoch
 
     @property
     def best_model(self) -> TrainingModel:
@@ -159,10 +157,6 @@ class Trainer:
         if self._best_opt_state is None:
             raise ValueError("No model has been trained yet.")
         return self._best_opt_state
-
-    @best_opt_state.setter
-    def best_opt_state(self, opt_state: optax.OptState) -> None:
-        self._best_opt_state = opt_state
 
     @property
     def logger(self) -> Optional[SummaryWriter]:
@@ -193,13 +187,7 @@ class Trainer:
             self._opt_state = self.opt.init(trainable)
 
         for _ in (
-            pbar := tqdm(
-                range(self._start_epoch, self._start_epoch + self.n_epochs),
-                desc="Training",
-                position=0,
-                leave=False,
-                initial=self._start_epoch,
-            )
+            pbar := tqdm(range(self.n_epochs), desc="Training", position=0, leave=False)
         ):
             epoch_loss = jnp.array(0.0)
             epoch_step_count = 0
