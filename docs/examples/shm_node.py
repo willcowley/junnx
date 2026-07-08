@@ -354,6 +354,7 @@ for _ax in (ax0, ax1):
     _ax.scatter(*ds.y.T, s=8, facecolor="#E15759", edgecolor="k", zorder=1)
     _fmt_axes(_ax)
 
+# %%
 # var plot
 fig, ax = plt.subplots(1, 1, figsize=(4, 4))
 im = ax.imshow(
