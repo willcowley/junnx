@@ -170,7 +170,6 @@ ds = TensorDataset(x, y + eps)
 
 fig, ax = plot_u()
 ax.scatter(*x[:, ::-1].T, c=y, cmap="inferno", s=4, edgecolors="w")  # type: ignore[misc]
-plt.savefig("/tmp/burgers_diffrax.png", dpi=200)
 
 # %% [markdown]
 #

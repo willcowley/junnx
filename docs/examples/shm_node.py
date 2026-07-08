@@ -148,9 +148,9 @@ _ = ax_time.legend(loc=0)
 # - `TractableMLP`, a simple MLP that has a stochastic final layer.
 # - `HamiltonianVectorField`, an object that computes the vector field from a realisation of the Hamiltonian function.
 # Note that this enforces that each vector field realisation conserves some constant of motion (though the form of the
-# Hamiltonian is not assumed i.e. we do not assume $H(x, \dot{x})=\frac{1}{2}(x^{2} + \dot{x}^{2})$).
+# Hamiltonian is not assumed i.e. we do not assume \\\(H(x, \dot{x})=\frac{1}{2}(x^{2} + \dot{x}^{2})\\\)).
 # - `StochasticHamiltonianNODE`, an object that integrates a realisation from the `HamiltonianVectorField`
-# from $t_{0}=0.0$ to some times $t$ corresponding to the time of observation of our dynamical system.
+# from \\\(t_{0}=0.0\\\) to some times \\\(t\\\) corresponding to the time of observation of our dynamical system.
 # - `TractableHamiltonianFSVILoss`, an FSVI loss object that applies the KL divergence term to the Hamiltonian function
 
 
@@ -372,7 +372,7 @@ fig.colorbar(
 
 
 # %% [markdown]
-# Finally, we can inspect individual trajectories predicted by the model. Note how we are making predictions over time
+# Finally, we can inspect individual trajectories predicted by the model. Note how we are making predictions over a time
 # window much greater than our original training data.
 
 # %%
