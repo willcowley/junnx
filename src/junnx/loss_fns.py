@@ -134,8 +134,7 @@ class TractableFSVILoss(NLLLoss):
         )
         # compute KL div
         klq_key, klp_key = jax.random.split(kl_key, 2)
-        m_net = m.net
-        assert isinstance(m_net, TractableStochasticNet)
+        m_net = self.get_tractable_net(m)
         mean, cov = m_net.tractable_f_mean_cov(context_x, key=klq_key)  # [O, M], [O, M, M]
         m_variational_dist = m.variational_dist
         assert isinstance(m_variational_dist, GaussianVariationalDistribution)
@@ -147,3 +146,8 @@ class TractableFSVILoss(NLLLoss):
         kl_loss /= n_batches_per_epoch
         kl_loss /= batch_size
         return nll_loss + kl_loss, predf
+
+    def get_tractable_net(self, model: TrainingModel) -> TractableStochasticNet:
+        m_net = model.net
+        assert isinstance(m_net, TractableStochasticNet)
+        return m_net

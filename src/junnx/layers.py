@@ -39,7 +39,7 @@ class DenseStochasticLayer(eqx.Module):
         self.w_mean = (
             scale * jax.random.truncated_normal(wm_key, -2.0, 2.0, w_shape) / _TRUNC_2STD_NORM
         )
-        self.w_log_var = jnp.full(w_shape, 2 * jnp.log(scale))
+        self.w_log_var = jnp.full(w_shape, 2 * jnp.log(scale), dtype=self.w_mean.dtype)
 
         self.bias = jnp.zeros((n_out,)) if use_bias else None
 

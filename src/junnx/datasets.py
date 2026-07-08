@@ -47,17 +47,6 @@ class TensorDataset(Dataset):
     def __getitem__(self, idx: jnp.ndarray) -> tuple[jnp.ndarray, jnp.ndarray]:
         return self._x[idx], self._y[idx]
 
-    def __add__(self, other: "TensorDataset") -> "TensorDataset":
-        if not isinstance(other, TensorDataset):
-            raise TypeError
-        if self.x.shape[1:] != other.x.shape[1:]:
-            raise ValueError
-        if self.y.shape[1:] != other.y.shape[1:]:
-            raise ValueError
-        x = jnp.concatenate([self.x, other.x], axis=0)
-        y = jnp.concatenate([self.y, other.y], axis=0)
-        return TensorDataset(x, y)
-
 
 class TransformedTensorDataset(TensorDataset):
 
@@ -100,8 +89,8 @@ class StandardizeTransformFn(DataTransformFn):
 
     def fit(self, x: jnp.ndarray) -> tfpb.Bijector:
         # x: [B, ...]
-        mean = jnp.mean(x, axis=self.axis, keepdims=self.keepdims)
-        std = jnp.std(x, axis=self.axis, keepdims=self.keepdims) + _EPS
+        mean = jnp.nanmean(x, axis=self.axis, keepdims=self.keepdims)
+        std = jnp.nanstd(x, axis=self.axis, keepdims=self.keepdims) + _EPS
         if self.batch_axis is not None:
             mean = jnp.squeeze(mean, axis=self.batch_axis)
             std = jnp.squeeze(std, axis=self.batch_axis)
